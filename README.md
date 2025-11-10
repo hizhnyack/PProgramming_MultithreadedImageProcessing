@@ -1,0 +1,2 @@
+# PProgramming_MultithreadedImageProcessing
+Проект по ППРограммированию

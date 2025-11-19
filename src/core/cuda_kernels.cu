@@ -29,7 +29,7 @@ extern "C" int validateImageData(unsigned char* gpu_data, int size) {
     int threads_per_block = 256;
     int blocks = (size + threads_per_block - 1) / threads_per_block;
     
-    validateImageKernel<<<blocks, threads_per_block>>>(gpu_data, d_error_count);
+    validateImageKernel<<<blocks, threads_per_block>>>(gpu_data, size, d_error_count);
     cudaDeviceSynchronize();
     
     cudaMemcpy(&h_error_count, d_error_count, sizeof(int), cudaMemcpyDeviceToHost);

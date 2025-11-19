@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.18)
-project(MultithreadedImageProcessing CUDA CXX)
 
+# Для WSL - устанавливаем архитектуру ДО project()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_ARCHITECTURES 89)
+# Используем архитектуру 86 (Ampere) для совместимости, работает на RTX 4060
+set(CMAKE_CUDA_ARCHITECTURES 86)
 
-# Обход проверки версии Visual Studio
+project(MultithreadedImageProcessing CUDA CXX)
+
+# Обход проверки версии компилятора (для GCC 13 в WSL и VS 2026 в Windows)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -allow-unsupported-compiler")
 add_compile_definitions(__NV_NO_HOST_COMPILER_CHECK=1)
 
@@ -34,7 +37,7 @@ add_executable(image_processor
 )
 
 set_target_properties(image_processor PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_SEPARABLE_COMPILATION OFF
 )
 
 target_compile_options(image_processor PRIVATE
@@ -43,4 +46,33 @@ target_compile_options(image_processor PRIVATE
         -Xcompiler -Wall
     >
 )
+
+# Линковка с C++ стандартной библиотекой и математической библиотекой
+target_link_libraries(image_processor PRIVATE
+    stdc++
+    m
+    cudart
+)
+
+# Отдельные тесты для каждого фильтра
+add_executable(test_grayscale
+    src/test_grayscale.cu
+    ${CORE_SOURCES}
+    src/filters/grayscale.cu
+)
+target_link_libraries(test_grayscale PRIVATE stdc++ m cudart)
+
+add_executable(test_rotation
+    src/test_rotation.cu
+    ${CORE_SOURCES}
+    src/filters/rotation.cu
+)
+target_link_libraries(test_rotation PRIVATE stdc++ m cudart)
+
+add_executable(test_blur
+    src/test_blur.cu
+    ${CORE_SOURCES}
+    src/filters/blur.cu
+)
+target_link_libraries(test_blur PRIVATE stdc++ m cudart)
 

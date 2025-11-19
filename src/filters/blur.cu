@@ -13,8 +13,6 @@ __global__ void boxBlurKernel(const unsigned char* input, unsigned char* output,
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     
     if (x < width && y < height) {
-        int window_size = 2 * radius + 1;
-        
         for (int c = 0; c < channels; c++) {
             float sum = 0.0f;
             int count = 0;

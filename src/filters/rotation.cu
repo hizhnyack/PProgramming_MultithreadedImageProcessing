@@ -13,7 +13,7 @@ __global__ void rotate90Kernel(const unsigned char* input, unsigned char* output
         int new_y = x;
         
         int in_idx = (y * width + x) * channels;
-        int out_idx = (new_y * height + new_x) * channels;
+        int out_idx = (new_y * height + new_x) * channels; 
         
         for (int c = 0; c < channels; c++) {
             output[out_idx + c] = input[in_idx + c];
@@ -49,7 +49,7 @@ __global__ void rotate270Kernel(const unsigned char* input, unsigned char* outpu
         int new_y = width - 1 - x;
         
         int in_idx = (y * width + x) * channels;
-        int out_idx = (new_y * height + new_x) * channels;
+        int out_idx = (new_y * height + new_x) * channels;  
         
         for (int c = 0; c < channels; c++) {
             output[out_idx + c] = input[in_idx + c];
@@ -187,6 +187,11 @@ bool RotationFilter::rotate90(const ImageData& input, ImageData& output) {
     
     if (!output.gpu_data) {
         CUDA_CHECK_RETURN(cudaMalloc((void**)&output.gpu_data, output.size_bytes));
+    }
+    
+    if (!input.gpu_data || !output.gpu_data) {
+        fprintf(stderr, "Invalid GPU data pointers\n");
+        return false;
     }
     
     dim3 blockSize(16, 16);

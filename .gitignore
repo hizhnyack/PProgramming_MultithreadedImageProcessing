@@ -46,3 +46,4 @@ build.sh
 check_syntax.sh
 # Temporary documentation
 TESTING.md
+cuda-keyring_1.0-1_all*

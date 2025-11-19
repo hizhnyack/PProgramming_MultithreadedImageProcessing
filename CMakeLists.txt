@@ -30,10 +30,16 @@ set(FILTER_SOURCES
     src/filters/blur.cu
 )
 
+set(UTILS_SOURCES
+    src/utils/image_loader.cu
+    src/utils/batch_processor.cu
+)
+
 add_executable(image_processor
     src/main.cu
     ${CORE_SOURCES}
     ${FILTER_SOURCES}
+    ${UTILS_SOURCES}
 )
 
 set_target_properties(image_processor PROPERTIES
@@ -56,21 +62,21 @@ target_link_libraries(image_processor PRIVATE
 
 # Отдельные тесты для каждого фильтра
 add_executable(test_grayscale
-    src/test_grayscale.cu
+    tests/test_grayscale.cu
     ${CORE_SOURCES}
     src/filters/grayscale.cu
 )
 target_link_libraries(test_grayscale PRIVATE stdc++ m cudart)
 
 add_executable(test_rotation
-    src/test_rotation.cu
+    tests/test_rotation.cu
     ${CORE_SOURCES}
     src/filters/rotation.cu
 )
 target_link_libraries(test_rotation PRIVATE stdc++ m cudart)
 
 add_executable(test_blur
-    src/test_blur.cu
+    tests/test_blur.cu
     ${CORE_SOURCES}
     src/filters/blur.cu
 )

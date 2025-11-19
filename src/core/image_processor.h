@@ -20,11 +20,17 @@ struct ImageData {
                   size_bytes(0), gpu_data(nullptr) {}
     
     ~ImageData() {
+        cleanup();
+    }
+    
+    void cleanup() {
         if (data) {
             delete[] data;
+            data = nullptr;
         }
         if (gpu_data) {
             cudaFree(gpu_data);
+            gpu_data = nullptr;
         }
     }
 

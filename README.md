@@ -10,66 +10,105 @@
 ## Возможности
 
 На данный момент реализованы следующие операции:
-- Преобразование в оттенки серого (`grayscale`)
-- Изменение яркости и контрастности (`brightness`, `contrast`)
-- Размытие по Гауссу (`gaussian_blur`)
-- Детекция границ по Собелю (`sobel_edge`)
+- **Преобразование в оттенки серого** (`grayscale`) - 3 варианта (стандартный, взвешенный, in-place)
+- **Поворот изображения** (`rotation`) - 90°, 180°, 270° и произвольный угол
+- **Размытие** (`blur`) - Box, Gaussian, Separable Gaussian, Motion blur
+- **Пакетная обработка** - многопоточная обработка директорий с изображениями
 
-Все операции выполняются на GPU с использованием собственных CUDA-ядер (без NPP или OpenCV CUDA). Библиотека поддерживает как одиночную, так и пакетную обработку изображений.
+Все операции выполняются на GPU с использованием собственных CUDA-ядер. Библиотека поддерживает форматы PNG, JPG, BMP через STB библиотеку.
 
 ---
 
 ## Архитектура проекта
 
 ```
-cuda-image-processing/
+PProgramming_MultithreadedImageProcessing/
 ├── src/
 │   ├── core/                   # Ядро библиотеки
-│   │   ├── image_processor.cu  # Оркестрация обработки, управление памятью
-│   │   ├── image_processor.h   # Публичный интерфейс основного класса
-│   │   └── cuda_kernels.cu     # Вспомогательные CUDA-ядра (передача памяти, валидация)
+│   │   ├── image_processor.cu  # Управление GPU памятью, CUDA операции
+│   │   ├── image_processor.h   # Публичный интерфейс (ImageData, ImageProcessor)
+│   │   ├── cuda_kernels.cu     # Низкоуровневые CUDA ядра
+│   │   └── cuda_utils.h        # Макросы для обработки ошибок CUDA
 │   ├── filters/                # Фильтры обработки изображений
-│   │   ├── grayscale.cu        # Ядра и обертка для преобразования в оттенки серого
-│   │   ├── grayscale.h         # Публичный интерфейс для grayscale
-│   │   ├── blur.cu             # Ядра размытия (Гауссово, коробочное) + обертка
-│   │   ├── blur.h              # Публичный интерфейс для blur
-│   │   ├── rotation.cu         # Ядра и обертка для поворота изображения
-│   │   └── rotation.h          # Публичный интерфейс для rotation
-│   ├── utils/                  # Вспомогательные компоненты
-│   │   ├── image_loader.cu     # Загрузка/сохранение изображений (использует libpng/libjpeg напрямую)
-│   │   ├── image_loader.h      # Интерфейс загрузчика изображений
-│   │   ├── batch_processor.cu  # Логика оркестрации пакетной обработки
-│   │   └── batch_processor.h   # Интерфейс пакетного процессора
-│   └── main.cu                 # Пример использования / точка входа
+│   │   ├── grayscale.cu        # Преобразование в оттенки серого
+│   │   ├── grayscale.h         # Интерфейс grayscale фильтра
+│   │   ├── blur.cu             # Размытие (Box, Gaussian, Separable, Motion)
+│   │   ├── blur.h              # Интерфейс blur фильтра
+│   │   ├── rotation.cu         # Поворот изображения (90°, 180°, 270°, произвольный)
+│   │   └── rotation.h          # Интерфейс rotation фильтра
+│   ├── utils/                  # Утилиты
+│   │   ├── image_loader.cu     # Загрузка/сохранение (PNG, JPG, BMP)
+│   │   ├── image_loader.h      # Интерфейс загрузчика
+│   │   ├── batch_processor.cu  # Многопоточная пакетная обработка
+│   │   ├── batch_processor.h   # Интерфейс пакетного процессора
+│   │   ├── stb_image.h         # Внешняя библиотека (загрузка изображений)
+│   │   └── stb_image_write.h   # Внешняя библиотека (сохранение изображений)
+│   └── main.cu                 # Главная программа (CLI)
+├── tests/                      # Юнит-тесты
+│   ├── test_grayscale.cu       # Тесты grayscale фильтра
+│   ├── test_rotation.cu        # Тесты rotation фильтра
+│   └── test_blur.cu            # Тесты blur фильтра
 ├── include/
-│   └── cuda_image_lib.h        # Главный заголовочный файл библиотеки (включает все публичные интерфейсы)
-├── CMakeLists.txt              # Конфигурация сборки проекта
-├── samples/                    # Примеры использования библиотеки
-│   ├── simple_example.cu       # Простой пример одиночной обработки
-│   ├── batch_example.cu        # Пример пакетной обработки
-│   └── multi_filter_example.cu # Пример применения нескольких фильтров к одному изображению
-└── tests/                      # Модульные и интеграционные тесты
-    ├── test_grayscale.cu       # Тесты для grayscale-фильтра
-    ├── test_batch.cu           # Тесты для пакетной обработки
-    └── CMakeLists.txt          # Конфигурация сборки тестов
+│   └── cuda_image_lib.h        # Главный заголовочный файл библиотеки
+├── samples/                    # Примеры использования
+│   ├── simple_example.cu       # Простой пример обработки
+│   ├── batch_example.cu        # Пакетная обработка
+│   └── multi_filter_example.cu # Применение нескольких фильтров
+├── CMakeLists.txt              # Конфигурация сборки
+├── run_tests.sh                # Скрипт запуска тестов
+└── .gitignore                  # Игнорируемые файлы
 ```
 
 ---
 
 ## Требования
 
-- **ОС**: Linux (рекомендуется Ubuntu 20.04+)
-- **GPU**: NVIDIA с поддержкой CUDA (архитектура compute capability ≥ 5.0)
-- **CUDA Toolkit**: версия 11.8 или выше
-- **Библиотеки**:
-  - `libpng-dev` или `libjpeg-dev` (для чтения/записи изображений)
-  - `g++`, `make`, `cmake`
-  - `OpenCV` (для загрузки/сохранения изображений в `utils/image_loader`)
+- **ОС**: Linux (Ubuntu 22.04+) или WSL2
+- **GPU**: NVIDIA с поддержкой CUDA (архитектура compute capability ≥ 8.6, например RTX 4060)
+- **CUDA Toolkit**: версия 12.3 или выше
+- **Компилятор**: GCC 12 (для совместимости с CUDA 12.3)
+- **Сборка**: CMake 3.18+
+- **Библиотеки**: STB (скачиваются автоматически)
 
 ---
 
 ## Сборка и запуск
 
+### 1. Скачивание STB библиотек
+
 ```bash
-echo "в работе"
+cd src/utils
+wget https://raw.githubusercontent.com/nothings/stb/master/stb_image.h
+wget https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h
+cd ../..
+```
+
+### 2. Сборка проекта
+
+```bash
+mkdir -p build && cd build
+cmake .. -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-12 \
+         -DCMAKE_C_COMPILER=/usr/bin/gcc-12 \
+         -DCMAKE_CXX_COMPILER=/usr/bin/g++-12
+cmake --build .
+```
+
+### 3. Запуск тестов
+
+```bash
+./run_tests.sh
+```
+
+### 4. Использование
+
+**Обработка одного изображения:**
+```bash
+./build/image_processor grayscale input.png output.png
+./build/image_processor rotate90 input.png output.png
+./build/image_processor blur input.png output.png 10
+```
+
+**Пакетная обработка директории:**
+```bash
+./build/image_processor batch grayscale ./images/ ./output/
 ```

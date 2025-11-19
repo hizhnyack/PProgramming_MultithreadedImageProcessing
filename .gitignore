@@ -42,8 +42,14 @@
 
 # Build directory
 build/
-build.sh
-check_syntax.sh
-# Temporary documentation
-TESTING.md
 cuda-keyring_1.0-1_all*
+run_tests.sh
+# External libraries (downloaded automatically)
+src/utils/stb_image.h
+src/utils/stb_image_write.h
+
+# Test images and output
+foto/
+output/
+test_images/
+test_output/

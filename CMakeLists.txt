@@ -22,6 +22,7 @@ include_directories(
 set(CORE_SOURCES
     src/core/image_processor.cu
     src/core/cuda_kernels.cu
+    src/core/parallel_processor.cu 
 )
 
 set(FILTER_SOURCES

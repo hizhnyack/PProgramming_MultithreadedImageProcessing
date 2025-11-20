@@ -5,12 +5,14 @@ CUDA Image Processing Web Interface
 Веб-интерфейс для обработки изображений на GPU
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 import os
 import subprocess
 import uuid
 from werkzeug.utils import secure_filename
 import time
+import zipfile
+from io import BytesIO
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -43,8 +45,24 @@ def run_cuda_filter(input_path, output_path, filter_name, params=None):
         
         # Добавляем параметры если есть
         if params:
-            if filter_name == 'blur' and 'radius' in params:
+            if filter_name == 'grayscale_weighted':
+                if 'r_weight' in params:
+                    cmd.append(str(params['r_weight']))
+                if 'g_weight' in params:
+                    cmd.append(str(params['g_weight']))
+                if 'b_weight' in params:
+                    cmd.append(str(params['b_weight']))
+            elif filter_name == 'blur' and 'radius' in params:
                 cmd.append(str(params['radius']))
+            elif filter_name in ['blur_gaussian', 'blur_separable'] and 'sigma' in params:
+                cmd.append(str(params['sigma']))
+            elif filter_name == 'blur_motion':
+                if 'length' in params:
+                    cmd.append(str(params['length']))
+                if 'angle' in params:
+                    cmd.append(str(params['angle']))
+            elif filter_name == 'rotate_arbitrary' and 'angle' in params:
+                cmd.append(str(params['angle']))
         
         # Запускаем и замеряем время
         start_time = time.time()
@@ -104,22 +122,51 @@ def upload_file():
         # Параметры фильтра
         params = {}
         
-        # Обработка поворота - преобразуем угол в команду
+        # Обработка grayscale
+        if filter_name == 'grayscale':
+            mode = request.form.get('grayscale_mode', 'standard')
+            
+            if mode == 'weighted':
+                filter_name = 'grayscale_weighted'
+                params['r_weight'] = float(request.form.get('weight_r', 0.299))
+                params['g_weight'] = float(request.form.get('weight_g', 0.587))
+                params['b_weight'] = float(request.form.get('weight_b', 0.114))
+        
+        # Обработка поворота
         if filter_name == 'rotate':
-            angle = int(request.form.get('rotation_angle', 90))
-            # Определяем команду в зависимости от угла
-            if angle == 90:
+            mode = request.form.get('rotation_mode', '90')
+            
+            # Определяем команду в зависимости от режима
+            if mode == '90':
                 filter_name = 'rotate90'
-            elif angle == 180:
+            elif mode == '180':
                 filter_name = 'rotate180'
-            elif angle == 270:
+            elif mode == '270':
                 filter_name = 'rotate270'
-            else:
-                # Для других углов используем rotate90 (можно расширить)
-                filter_name = 'rotate90'
-            params['angle'] = angle
+            elif mode == 'custom':
+                # Произвольный угол
+                filter_name = 'rotate_arbitrary'
+                angle = int(request.form.get('rotation_angle', 45))
+                params['angle'] = angle
         elif filter_name == 'blur':
-            params['radius'] = int(request.form.get('blur_radius', 5))
+            # Получаем выбранный алгоритм
+            algorithm = request.form.get('blur_algorithm', 'box')
+            radius = int(request.form.get('blur_radius', 5))
+            
+            # Определяем команду и параметры в зависимости от алгоритма
+            if algorithm == 'box':
+                filter_name = 'blur'
+                params['radius'] = radius
+            elif algorithm == 'gaussian':
+                filter_name = 'blur_gaussian'
+                params['sigma'] = radius / 2.0  # Преобразуем радиус в sigma
+            elif algorithm == 'separable':
+                filter_name = 'blur_separable'
+                params['sigma'] = radius / 2.0
+            elif algorithm == 'motion':
+                filter_name = 'blur_motion'
+                params['length'] = radius * 2  # Длина размытия
+                params['angle'] = int(request.form.get('motion_angle', 0))
         
         # Запускаем обработку
         success, message, exec_time = run_cuda_filter(input_path, output_path, filter_name, params)
@@ -167,25 +214,86 @@ def get_filters():
         {
             'id': 'grayscale',
             'name': 'Оттенки серого',
-            'description': 'Преобразование в черно-белое изображение',
+            'description': 'Преобразование в черно-белое',
             'icon': '🎨',
-            'params': []
+            'params': [
+                {
+                    'name': 'grayscale_mode',
+                    'label': 'Алгоритм преобразования',
+                    'type': 'buttons',
+                    'options': [
+                        {'value': 'standard', 'label': 'Стандартный', 'icon': '⚡'},
+                        {'value': 'weighted', 'label': 'Настраиваемый', 'icon': '⚙️'}
+                    ],
+                    'default': 'standard'
+                },
+                {
+                    'name': 'weight_r',
+                    'label': 'Вес красного (R)',
+                    'type': 'range',
+                    'min': 0,
+                    'max': 1,
+                    'step': 0.01,
+                    'default': 0.299,
+                    'unit': '',
+                    'depends_on': 'grayscale_mode',
+                    'depends_value': 'weighted'
+                },
+                {
+                    'name': 'weight_g',
+                    'label': 'Вес зеленого (G)',
+                    'type': 'range',
+                    'min': 0,
+                    'max': 1,
+                    'step': 0.01,
+                    'default': 0.587,
+                    'unit': '',
+                    'depends_on': 'grayscale_mode',
+                    'depends_value': 'weighted'
+                },
+                {
+                    'name': 'weight_b',
+                    'label': 'Вес синего (B)',
+                    'type': 'range',
+                    'min': 0,
+                    'max': 1,
+                    'step': 0.01,
+                    'default': 0.114,
+                    'unit': '',
+                    'depends_on': 'grayscale_mode',
+                    'depends_value': 'weighted'
+                }
+            ]
         },
         {
             'id': 'rotate',
             'name': 'Поворот',
-            'description': 'Поворот изображения на любой угол',
+            'description': 'Быстрый поворот или произвольный угол',
             'icon': '🔄',
             'params': [
                 {
+                    'name': 'rotation_mode',
+                    'label': 'Режим поворота',
+                    'type': 'buttons',
+                    'options': [
+                        {'value': '90', 'label': '90°', 'icon': '↻'},
+                        {'value': '180', 'label': '180°', 'icon': '↻↻'},
+                        {'value': '270', 'label': '270°', 'icon': '↺'},
+                        {'value': 'custom', 'label': 'Произвольный', 'icon': '🎯'}
+                    ],
+                    'default': '90'
+                },
+                {
                     'name': 'rotation_angle',
-                    'label': 'Угол поворота',
+                    'label': 'Произвольный угол',
                     'type': 'range',
                     'min': 0,
                     'max': 360,
-                    'step': 90,
-                    'default': 90,
-                    'unit': '°'
+                    'step': 1,
+                    'default': 45,
+                    'unit': '°',
+                    'depends_on': 'rotation_mode',
+                    'depends_value': 'custom'
                 }
             ]
         },
@@ -196,18 +304,77 @@ def get_filters():
             'icon': '🌫️',
             'params': [
                 {
+                    'name': 'blur_algorithm',
+                    'label': 'Алгоритм размытия',
+                    'type': 'select',
+                    'options': [
+                        {'value': 'box', 'label': 'Box Blur (быстрый, простой)'},
+                        {'value': 'gaussian', 'label': 'Gaussian Blur (качественный)'},
+                        {'value': 'separable', 'label': 'Separable Gaussian (оптимизированный)'},
+                        {'value': 'motion', 'label': 'Motion Blur (эффект движения)'}
+                    ],
+                    'default': 'box'
+                },
+                {
                     'name': 'blur_radius',
-                    'label': 'Радиус размытия',
+                    'label': 'Радиус/Интенсивность',
                     'type': 'range',
                     'min': 1,
                     'max': 20,
                     'default': 5,
                     'unit': 'px'
+                },
+                {
+                    'name': 'motion_angle',
+                    'label': 'Угол движения (для Motion Blur)',
+                    'type': 'range',
+                    'min': 0,
+                    'max': 360,
+                    'step': 45,
+                    'default': 0,
+                    'unit': '°',
+                    'depends_on': 'blur_algorithm',
+                    'depends_value': 'motion'
                 }
             ]
         }
     ]
     return jsonify(filters)
+
+@app.route('/download_all', methods=['POST'])
+def download_all():
+    """Скачать все обработанные файлы в ZIP архиве"""
+    try:
+        data = request.get_json()
+        filenames = data.get('files', [])
+        
+        if not filenames:
+            return jsonify({'success': False, 'error': 'Нет файлов для скачивания'}), 400
+        
+        # Создаем ZIP архив в памяти
+        memory_file = BytesIO()
+        with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for filename in filenames:
+                file_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+                if os.path.exists(file_path):
+                    # Добавляем файл в архив с его именем
+                    zf.write(file_path, arcname=filename)
+        
+        memory_file.seek(0)
+        
+        # Генерируем имя для ZIP файла
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        zip_filename = f'processed_images_{timestamp}.zip'
+        
+        return send_file(
+            memory_file,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=zip_filename
+        )
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Создаем папки если не существуют

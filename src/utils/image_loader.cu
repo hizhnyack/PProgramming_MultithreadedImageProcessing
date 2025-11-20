@@ -9,25 +9,9 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-bool ImageLoader::load(const std::string& filename, ImageData& image) {
-    fprintf(stderr, "[LOG] ImageLoader::load() called for file: %s\n", filename.c_str());
-    
-    // Проверяем доступность CUDA устройства перед использованием
-    int device_count = 0;
-    cudaError_t error = cudaGetDeviceCount(&device_count);
-    fprintf(stderr, "[LOG] CUDA device count check: error=%s, count=%d\n", 
-            cudaGetErrorString(error), device_count);
-    
-    if (error != cudaSuccess || device_count == 0) {
-        fprintf(stderr, "[ERROR] No CUDA devices available before loading image!\n");
-        fprintf(stderr, "[ERROR] CUDA error: %s\n", cudaGetErrorString(error));
-        return false;
-    }
-    
-    // Проверяем текущее устройство
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    fprintf(stderr, "[LOG] Current CUDA device: %d\n", current_device);
+bool ImageLoader::load(const std::string& filename, ImageData& image, bool use_gpu) {
+    fprintf(stderr, "[LOG] ImageLoader::load() called for file: %s (use_gpu=%s)\n", 
+            filename.c_str(), use_gpu ? "true" : "false");
     
     // Освобождаем старые данные если есть
     if (image.data) {
@@ -36,7 +20,9 @@ bool ImageLoader::load(const std::string& filename, ImageData& image) {
     }
     if (image.gpu_data) {
         fprintf(stderr, "[LOG] Freeing old GPU memory\n");
-        cudaFree(image.gpu_data);
+        if (use_gpu) {
+            cudaFree(image.gpu_data);
+        }
         image.gpu_data = nullptr;
     }
     
@@ -67,40 +53,63 @@ bool ImageLoader::load(const std::string& filename, ImageData& image) {
     // Освобождаем временный буфер STB
     stbi_image_free(loaded_data);
     
-    // Проверяем CUDA устройство еще раз перед выделением памяти
-    error = cudaGetDeviceCount(&device_count);
-    fprintf(stderr, "[LOG] Before cudaMalloc: device_count=%d, error=%s\n", 
-            device_count, cudaGetErrorString(error));
-    
-    if (error != cudaSuccess || device_count == 0) {
-        fprintf(stderr, "[ERROR] CUDA device became unavailable before memory allocation!\n");
-        return false;
-    }
-    
-    // Выделяем память на GPU
-    fprintf(stderr, "[LOG] Allocating GPU memory: %zu bytes\n", image.size_bytes);
-    error = cudaMalloc(&image.gpu_data, image.size_bytes);
-    if (error != cudaSuccess) {
-        fprintf(stderr, "[ERROR] cudaMalloc failed: %s\n", cudaGetErrorString(error));
-        fprintf(stderr, "[ERROR] Device count: %d\n", device_count);
-        return false;
-    }
-    fprintf(stderr, "[LOG] GPU memory allocated successfully at: %p\n", image.gpu_data);
-    
-    // Копируем данные на GPU
-    fprintf(stderr, "[LOG] Copying data to GPU...\n");
-    error = cudaMemcpy(image.gpu_data, image.data, 
-                      image.size_bytes, cudaMemcpyHostToDevice);
-    if (error != cudaSuccess) {
-        fprintf(stderr, "[ERROR] cudaMemcpy failed: %s\n", cudaGetErrorString(error));
-        cudaFree(image.gpu_data);
+    // Копируем на GPU только если нужно
+    if (use_gpu) {
+        // Проверяем доступность CUDA устройства перед использованием
+        int device_count = 0;
+        cudaError_t error = cudaGetDeviceCount(&device_count);
+        fprintf(stderr, "[LOG] CUDA device count check: error=%s, count=%d\n", 
+                cudaGetErrorString(error), device_count);
+        
+        if (error != cudaSuccess || device_count == 0) {
+            fprintf(stderr, "[ERROR] No CUDA devices available before loading image!\n");
+            fprintf(stderr, "[ERROR] CUDA error: %s\n", cudaGetErrorString(error));
+            return false;
+        }
+        
+        // Проверяем текущее устройство
+        int current_device = -1;
+        cudaGetDevice(&current_device);
+        fprintf(stderr, "[LOG] Current CUDA device: %d\n", current_device);
+        
+        // Проверяем CUDA устройство еще раз перед выделением памяти
+        error = cudaGetDeviceCount(&device_count);
+        fprintf(stderr, "[LOG] Before cudaMalloc: device_count=%d, error=%s\n", 
+                device_count, cudaGetErrorString(error));
+        
+        if (error != cudaSuccess || device_count == 0) {
+            fprintf(stderr, "[ERROR] CUDA device became unavailable before memory allocation!\n");
+            return false;
+        }
+        
+        // Выделяем память на GPU
+        fprintf(stderr, "[LOG] Allocating GPU memory: %zu bytes\n", image.size_bytes);
+        error = cudaMalloc(&image.gpu_data, image.size_bytes);
+        if (error != cudaSuccess) {
+            fprintf(stderr, "[ERROR] cudaMalloc failed: %s\n", cudaGetErrorString(error));
+            fprintf(stderr, "[ERROR] Device count: %d\n", device_count);
+            return false;
+        }
+        fprintf(stderr, "[LOG] GPU memory allocated successfully at: %p\n", image.gpu_data);
+        
+        // Копируем данные на GPU
+        fprintf(stderr, "[LOG] Copying data to GPU...\n");
+        error = cudaMemcpy(image.gpu_data, image.data, 
+                          image.size_bytes, cudaMemcpyHostToDevice);
+        if (error != cudaSuccess) {
+            fprintf(stderr, "[ERROR] cudaMemcpy failed: %s\n", cudaGetErrorString(error));
+            cudaFree(image.gpu_data);
+            image.gpu_data = nullptr;
+            return false;
+        }
+        fprintf(stderr, "[LOG] Data copied to GPU successfully\n");
+    } else {
+        fprintf(stderr, "[LOG] Skipping GPU memory allocation (CPU mode)\n");
         image.gpu_data = nullptr;
-        return false;
     }
-    fprintf(stderr, "[LOG] Data copied to GPU successfully\n");
     
-    printf("Loaded image: %s (%dx%d, %d channels)\n", 
-           filename.c_str(), width, height, channels);
+    printf("Loaded image: %s (%dx%d, %d channels) [%s]\n", 
+           filename.c_str(), width, height, channels, use_gpu ? "GPU" : "CPU");
     
     return true;
 }

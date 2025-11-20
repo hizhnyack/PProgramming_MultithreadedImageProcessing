@@ -186,3 +186,11 @@ float ImageProcessor::getElapsedTime(cudaEvent_t start, cudaEvent_t end) {
     CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, end));
     return milliseconds;
 }
+
+// Реализация cleanupGPU для ImageData
+void ImageData::cleanupGPU() {
+    if (gpu_data) {
+        cudaFree(gpu_data);
+        gpu_data = nullptr;
+    }
+}

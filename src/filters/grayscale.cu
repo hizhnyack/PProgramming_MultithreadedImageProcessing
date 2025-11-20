@@ -69,7 +69,8 @@ __global__ void grayscaleInPlaceKernel(unsigned char* data, int width, int heigh
 
 extern "C" void launchGrayscaleKernel(const unsigned char* input, unsigned char* output,
                                       int width, int height, int channels, cudaStream_t stream) {
-    dim3 blockSize(16, 16);
+    // Оптимальный размер блока: 32x8 = 256 потоков
+    dim3 blockSize(32, 8);
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
@@ -83,7 +84,7 @@ extern "C" void launchGrayscaleWeightedKernel(const unsigned char* input, unsign
                                               int width, int height, int channels,
                                               float r_weight, float g_weight, float b_weight,
                                               cudaStream_t stream) {
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
@@ -112,7 +113,7 @@ bool GrayscaleFilter::apply(const ImageData& input, ImageData& output) {
         CUDA_CHECK_RETURN(cudaMalloc((void**)&output.gpu_data, output.size_bytes));
     }
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((input.width + blockSize.x - 1) / blockSize.x,
                   (input.height + blockSize.y - 1) / blockSize.y);
     
@@ -130,7 +131,7 @@ bool GrayscaleFilter::applyInPlace(ImageData& image) {
         return false;
     }
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
                   (image.height + blockSize.y - 1) / blockSize.y);
     
@@ -161,7 +162,7 @@ bool GrayscaleFilter::applyWithWeights(const ImageData& input, ImageData& output
         CUDA_CHECK_RETURN(cudaMalloc((void**)&output.gpu_data, output.size_bytes));
     }
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((input.width + blockSize.x - 1) / blockSize.x,
                   (input.height + blockSize.y - 1) / blockSize.y);
     
@@ -189,7 +190,7 @@ bool GrayscaleFilter::apply(ImageData& image, cudaStream_t stream) {
     size_t output_size = image.width * image.height * sizeof(unsigned char);
     CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, output_size));
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
                   (image.height + blockSize.y - 1) / blockSize.y);
     
@@ -227,7 +228,7 @@ bool GrayscaleFilter::applyWithWeights(ImageData& image, cudaStream_t stream,
     size_t output_size = image.width * image.height * sizeof(unsigned char);
     CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, output_size));
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
                   (image.height + blockSize.y - 1) / blockSize.y);
     

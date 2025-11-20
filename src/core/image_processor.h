@@ -5,37 +5,9 @@
 #include <memory>
 #include <vector>
 #include "cuda_utils.h"
+#include "image_data.h"
 
-struct ImageData {
-    unsigned char* data; //host memory pointer
-    int width;
-    int height;
-    int channels;
-    size_t size_bytes;
-    
-    // GPU memory pointer
-    unsigned char* gpu_data;
-    
-    ImageData() : data(nullptr), width(0), height(0), channels(0), 
-                  size_bytes(0), gpu_data(nullptr) {}
-    
-    ~ImageData() {
-        cleanup();
-    }
-    
-    void cleanup() {
-        if (data) {
-            delete[] data;
-            data = nullptr;
-        }
-        if (gpu_data) {
-            cudaFree(gpu_data);
-            gpu_data = nullptr;
-        }
-    }
-
-    int getPixelCount() const { return width * height * channels; }
-};
+// ImageData теперь определен в image_data.h для избежания зависимостей от CUDA в CPU версиях
 
 class ImageProcessor {
 public:

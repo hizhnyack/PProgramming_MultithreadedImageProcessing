@@ -1,8 +1,11 @@
 // Глобальные переменные
-let selectedFiles = [];  // Массив файлов
+let selectedFile = null;
+let selectedFiles = [];  // Массив выбранных файлов
 let selectedFilter = null;
 let filters = [];
-let outputFilenames = [];  // Массив результатов
+let outputFilename = null;
+let outputFilenames = [];
+let batchProcessing = false;  // Флаг пакетной обработки
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
@@ -189,68 +192,165 @@ function setupFileInput() {
     });
 }
 
-// Обработка нескольких файлов
+// Обработка выбранных файлов
 function handleFiles(files) {
     const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp'];
-    selectedFiles = [];
+    const maxSizePerFile = 16 * 1024 * 1024; // 16 МБ на файл
+    const maxTotalSize = 3 * 1024 * 1024 * 1024; // 3 ГБ общий размер запроса
     
-    // Фильтруем и проверяем файлы
+    // Фильтруем файлы
+    const validFiles = [];
+    let totalSize = 0;
+    
     for (const file of files) {
         if (!allowedTypes.includes(file.type)) {
-            alert(`Файл ${file.name} имеет недопустимый формат! Используйте PNG, JPG или BMP.`);
+            alert(`Файл "${file.name}" имеет недопустимый формат. Используйте PNG, JPG или BMP.`);
             continue;
         }
         
-        if (file.size > 16 * 1024 * 1024) {
-            alert(`Файл ${file.name} слишком большой! Максимальный размер: 16 МБ.`);
+        if (file.size > maxSizePerFile) {
+            alert(`Файл "${file.name}" слишком большой. Максимальный размер одного файла: 16 МБ.`);
             continue;
         }
         
-        selectedFiles.push(file);
+        // Проверяем общий размер
+        if (totalSize + file.size > maxTotalSize) {
+            alert(`Общий размер файлов превышает лимит (3 ГБ). Файл "${file.name}" не будет добавлен.`);
+            continue;
+        }
+        
+        totalSize += file.size;
+        validFiles.push(file);
     }
     
-    if (selectedFiles.length === 0) {
+    if (validFiles.length === 0) {
         return;
     }
     
-    // Показываем предпросмотр
-    const previewGrid = document.getElementById('previewGrid');
-    previewGrid.innerHTML = '';
-    
-    selectedFiles.forEach((file, index) => {
+    // Если один файл - используем старый режим
+    if (validFiles.length === 1) {
+        selectedFile = validFiles[0];
+        selectedFiles = [];
+        batchProcessing = false;
+        
+        // Показываем предпросмотр
         const reader = new FileReader();
         reader.onload = function(e) {
-            const previewItem = document.createElement('div');
-            previewItem.className = 'preview-item';
-            previewItem.innerHTML = `
+            document.getElementById('previewImage').src = e.target.result;
+            document.getElementById('fileName').textContent = validFiles[0].name;
+            document.getElementById('previewSection').style.display = 'block';
+            document.getElementById('filesList').style.display = 'none';
+            document.getElementById('filterSection').style.display = 'block';
+        };
+        reader.readAsDataURL(validFiles[0]);
+    } else {
+        // Несколько файлов - пакетная обработка
+        selectedFile = null;
+        selectedFiles = validFiles;
+        batchProcessing = true;
+        
+        // Скрываем предпросмотр одного файла
+        document.getElementById('previewSection').style.display = 'none';
+        
+        // Показываем список файлов
+        renderFilesList();
+        document.getElementById('filesList').style.display = 'block';
+        document.getElementById('filterSection').style.display = 'block';
+    }
+}
+
+// Отрисовка списка файлов
+function renderFilesList() {
+    const filesGrid = document.getElementById('filesGrid');
+    const filesCount = document.getElementById('filesCount');
+    
+    filesGrid.innerHTML = '';
+    
+    // Вычисляем общий размер
+    let totalSize = 0;
+    selectedFiles.forEach(file => {
+        totalSize += file.size;
+    });
+    
+    // Отображаем количество и общий размер
+    const totalSizeGB = (totalSize / (1024 * 1024 * 1024)).toFixed(2);
+    const maxSizeGB = 3;
+    const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(0);
+    filesCount.textContent = `${selectedFiles.length} файл(ов) (${totalSizeGB} ГБ / ${maxSizeGB} ГБ)`;
+    
+    // Предупреждение если размер близок к лимиту
+    if (totalSize > maxSizeGB * 1024 * 1024 * 1024 * 0.9) {
+        filesCount.style.color = '#dc3545';
+        filesCount.textContent += ' ⚠️';
+    } else {
+        filesCount.style.color = '#333';
+    }
+    
+    selectedFiles.forEach((file, index) => {
+        // Вычисляем размер ДО чтения файла
+        const fileSizeKB = (file.size / 1024).toFixed(1);
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        const sizeText = file.size >= 1024 * 1024 ? `${fileSizeMB} МБ` : `${fileSizeKB} КБ`;
+        
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        fileItem.dataset.index = index;
+        
+        // Показываем placeholder пока загружается
+        fileItem.innerHTML = `
+            <button class="remove-btn" onclick="removeFile(${index})" title="Удалить">×</button>
+            <div style="width: 100%; height: 120px; background: #f0f0f0; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                <span style="color: #999;">Загрузка...</span>
+            </div>
+            <div class="file-info">
+                <div class="file-name" title="${file.name}">${file.name}</div>
+                <div class="file-size">${sizeText}</div>
+            </div>
+        `;
+        
+        filesGrid.appendChild(fileItem);
+        
+        // Загружаем изображение
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            fileItem.innerHTML = `
+                <button class="remove-btn" onclick="removeFile(${index})" title="Удалить">×</button>
                 <img src="${e.target.result}" alt="${file.name}">
-                <p class="preview-filename">${file.name}</p>
-                <button class="btn-remove" onclick="removeFile(${index})">✕</button>
+                <div class="file-info">
+                    <div class="file-name" title="${file.name}">${file.name}</div>
+                    <div class="file-size">${sizeText}</div>
+                </div>
             `;
-            previewGrid.appendChild(previewItem);
         };
         reader.readAsDataURL(file);
     });
-    
-    document.getElementById('fileCount').textContent = selectedFiles.length;
-    document.getElementById('previewSection').style.display = 'block';
-    document.getElementById('filterSection').style.display = 'block';
 }
 
-// Удалить файл из списка
+// Удаление файла из списка
 function removeFile(index) {
     selectedFiles.splice(index, 1);
+    
     if (selectedFiles.length === 0) {
-        resetForm();
+        clearFiles();
     } else {
-        handleFiles(selectedFiles);
+        renderFilesList();
     }
+}
+
+// Очистка списка файлов
+function clearFiles() {
+    selectedFiles = [];
+    selectedFile = null;
+    document.getElementById('filesList').style.display = 'none';
+    document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('filterSection').style.display = 'none';
+    document.getElementById('fileInput').value = '';
 }
 
 // Обработка изображений
 async function processImage() {
-    if (selectedFiles.length === 0) {
-        alert('Пожалуйста, выберите файлы!');
+    if (!selectedFile && selectedFiles.length === 0) {
+        alert('Пожалуйста, выберите файл(ы)!');
         return;
     }
     
@@ -259,194 +359,237 @@ async function processImage() {
         return;
     }
     
-    // Показываем индикатор загрузки и прогресс
+    // Если один файл - используем старый режим
+    if (!batchProcessing && selectedFile) {
+        await processSingleFile();
+    } else if (batchProcessing && selectedFiles.length > 0) {
+        await processBatchFiles();
+    }
+}
+
+// Обработка одного файла
+async function processSingleFile() {
+    // Показываем индикатор загрузки
     document.getElementById('loadingOverlay').style.display = 'flex';
-    const progressContainer = document.getElementById('progressContainer');
+    
+    // Получаем выбранный режим обработки
+    const processorMode = document.querySelector('input[name="processor"]:checked').value;
+    
+    // Формируем данные для отправки
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('filter', selectedFilter.id);
+    formData.append('processor', processorMode);
+    
+    // Добавляем параметры фильтра
+    if (selectedFilter.params) {
+        selectedFilter.params.forEach(param => {
+            const value = document.getElementById(param.name).value;
+            formData.append(param.name, value);
+        });
+    }
+    
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        document.getElementById('loadingOverlay').style.display = 'none';
+        
+        // Проверяем статус ответа
+        if (!response.ok) {
+            let errorMessage = 'Ошибка сервера: ' + response.statusText;
+            try {
+                const errorData = await response.json();
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+            } catch (e) {
+                if (response.status === 413) {
+                    errorMessage = 'Размер файла слишком большой! Максимальный размер: 16 МБ.';
+                }
+            }
+            alert(errorMessage);
+            return;
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showResult(result);
+        } else {
+            alert('Ошибка обработки: ' + result.error);
+        }
+    } catch (error) {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        alert('Ошибка сервера: ' + error.message);
+    }
+}
+
+// Пакетная обработка файлов
+async function processBatchFiles() {
+    // Скрываем секции и показываем результаты пакетной обработки
+    document.getElementById('uploadBox').style.display = 'none';
+    document.getElementById('filesList').style.display = 'none';
+    document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('filterSection').style.display = 'none';
+    document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('batchResultSection').style.display = 'block';
+    
+    // Сбрасываем статистику
+    document.getElementById('batchSuccess').textContent = '0';
+    document.getElementById('batchFailed').textContent = '0';
+    document.getElementById('batchTime').textContent = '-';
+    document.getElementById('resultsList').innerHTML = '';
+    
+    // Обновляем прогресс
+    updateProgress(0, 'Начало обработки...');
+    
+    // Получаем выбранный режим обработки
+    const processorMode = document.querySelector('input[name="processor"]:checked').value;
+    
+    // Формируем данные для отправки
+    const formData = new FormData();
+    selectedFiles.forEach(file => {
+        formData.append('files', file);
+    });
+    formData.append('filter', selectedFilter.id);
+    formData.append('processor', processorMode);
+    
+    // Добавляем параметры фильтра
+    if (selectedFilter.params) {
+        selectedFilter.params.forEach(param => {
+            const value = document.getElementById(param.name).value;
+            formData.append(param.name, value);
+        });
+    }
+    
+    const startTime = Date.now();
+    
+    try {
+        const response = await fetch('/upload_batch', {
+            method: 'POST',
+            body: formData
+        });
+        
+        // Проверяем статус ответа
+        if (!response.ok) {
+            // Пытаемся получить JSON с описанием ошибки
+            let errorMessage = 'Ошибка сервера: ' + response.statusText;
+            try {
+                const errorData = await response.json();
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+            } catch (e) {
+                // Если не удалось распарсить JSON, используем стандартное сообщение
+                if (response.status === 413) {
+                    errorMessage = 'Размер загружаемых файлов слишком большой! Максимальный размер запроса: 3 ГБ.';
+                }
+            }
+            alert(errorMessage);
+            return;
+        }
+        
+        // Используем Server-Sent Events или polling для прогресса
+        // Для простоты используем polling
+        const result = await response.json();
+        
+        if (result.success) {
+            const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            showBatchResults(result, totalTime);
+        } else {
+            alert('Ошибка обработки: ' + result.error);
+        }
+    } catch (error) {
+        alert('Ошибка сервера: ' + error.message);
+    }
+}
+
+// Обновление прогресса
+function updateProgress(percent, text) {
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
     
-    if (selectedFiles.length > 1) {
-        progressContainer.style.display = 'block';
-        document.getElementById('loadingText').textContent = 'Обработка изображений на GPU...';
-    }
-    
-    outputFilenames = [];
-    let processed = 0;
-    
-    // Обрабатываем каждый файл
-    for (const file of selectedFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('filter', selectedFilter.id);
-        
-        // Добавляем параметры фильтра
-        if (selectedFilter.params) {
-            selectedFilter.params.forEach(param => {
-                const value = document.getElementById(param.name).value;
-                formData.append(param.name, value);
-            });
-        }
-        
-        try {
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                outputFilenames.push({
-                    original: file.name,
-                    output: result.output_file,
-                    time: result.execution_time,  // Исправлено: execution_time вместо processing_time
-                    size: result.file_size        // Исправлено: file_size вместо output_size
-                });
-            } else {
-                console.error(`Ошибка обработки ${file.name}: ${result.error}`);
-            }
-        } catch (error) {
-            console.error(`Ошибка сервера для ${file.name}: ${error.message}`);
-        }
-        
-        processed++;
-        progressBar.style.width = `${(processed / selectedFiles.length) * 100}%`;
-        progressText.textContent = `${processed} / ${selectedFiles.length}`;
-    }
-    
-    document.getElementById('loadingOverlay').style.display = 'none';
-    
-    if (outputFilenames.length > 0) {
-        showResults();
-    } else {
-        alert('Не удалось обработать ни одного изображения!');
-    }
+    progressBar.style.width = percent + '%';
+    progressBar.textContent = percent.toFixed(0) + '%';
+    progressText.textContent = text;
 }
 
-// Показать результаты
-function showResults() {
-    // Скрываем предыдущие секции и показываем результат
-    document.getElementById('uploadBox').style.display = 'none';
-    document.getElementById('previewSection').style.display = 'none';
-    document.getElementById('filterSection').style.display = 'none';
-    document.getElementById('resultSection').style.display = 'block';
+// Показ результатов пакетной обработки
+function showBatchResults(result, totalTime) {
+    document.getElementById('batchSuccess').textContent = result.success_count || 0;
+    document.getElementById('batchFailed').textContent = result.failed_count || 0;
+    document.getElementById('batchTime').textContent = totalTime + ' сек';
     
-    // Обновляем статистику
-    const totalTime = outputFilenames.reduce((sum, r) => sum + parseFloat(r.time), 0).toFixed(3);
-    const totalSize = outputFilenames.reduce((sum, r) => sum + parseFloat(r.size), 0).toFixed(2);
+    updateProgress(100, 'Обработка завершена!');
     
-    document.getElementById('execTime').textContent = totalTime + ' сек';
-    document.getElementById('fileSize').textContent = totalSize + ' КБ';
-    document.getElementById('filterUsed').textContent = `${selectedFilter.name} (${outputFilenames.length} файлов)`;
+    const resultsList = document.getElementById('resultsList');
+    resultsList.innerHTML = '';
     
-    // Показываем первое изображение в сравнении
-    if (outputFilenames.length > 0) {
-        const beforeImg = document.getElementById('beforeImage');
-        const afterImg = document.getElementById('afterImage');
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            beforeImg.src = e.target.result;
-        };
-        reader.readAsDataURL(selectedFiles[0]);
-        
-        afterImg.src = '/view/' + outputFilenames[0].output;
-        
-        // Настраиваем кнопки скачивания
-        const downloadBtn = document.getElementById('downloadBtn');
-        const downloadAllBtn = document.getElementById('downloadAllBtn');
-        const filesList = document.getElementById('filesList');
-        const filesListContent = document.getElementById('filesListContent');
-        
-        if (outputFilenames.length === 1) {
-            // Один файл - обычная кнопка скачивания
-            downloadBtn.textContent = '💾 Скачать';
-            downloadBtn.onclick = () => {
-                window.location.href = '/download/' + outputFilenames[0].output;
-            };
-            downloadAllBtn.style.display = 'none';
-            filesList.style.display = 'none';
-        } else {
-            // Несколько файлов - показываем обе кнопки и список
-            downloadBtn.textContent = '💾 Скачать первый';
-            downloadBtn.onclick = () => {
-                window.location.href = '/download/' + outputFilenames[0].output;
-            };
-            downloadAllBtn.style.display = 'inline-block';
-            filesList.style.display = 'block';
+    // Сохраняем успешные файлы для скачивания
+    window.batchSuccessFiles = [];
+    
+    if (result.results && result.results.length > 0) {
+        result.results.forEach((item, index) => {
+            const resultItem = document.createElement('div');
+            resultItem.className = `result-item ${item.success ? 'success' : 'error'}`;
             
-            // Создаем список файлов с индивидуальными кнопками
-            filesListContent.innerHTML = '';
-            outputFilenames.forEach((result, index) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `
-                    <span class="file-number">${index + 1}.</span>
-                    <span class="file-name">${result.original}</span>
-                    <span class="file-stats">⏱️ ${result.time} сек | 📦 ${result.size} КБ</span>
-                    <button class="btn btn-sm btn-primary" onclick="downloadSingleFile('${result.output}', '${result.original}')">
+            let content = `
+                <div class="result-status">${item.success ? '✅' : '❌'}</div>
+                <div class="result-name">${item.filename}</div>
+            `;
+            
+            if (item.success && item.output_file) {
+                window.batchSuccessFiles.push(item.output_file);
+                content += `
+                    <img src="/view/${item.output_file}" alt="Result">
+                    <div class="result-time">${item.execution_time ? item.execution_time.toFixed(3) + ' сек' : '-'}</div>
+                    <button class="download-btn" onclick="window.location.href='/download/${item.output_file}'">
                         💾 Скачать
                     </button>
                 `;
-                filesListContent.appendChild(fileItem);
-            });
+            } else {
+                content += `
+                    <div class="result-time" style="color: #dc3545;">${item.error || 'Ошибка обработки'}</div>
+                `;
+            }
             
-            // Показываем галерею всех изображений
-            const resultsGallery = document.getElementById('resultsGallery');
-            const galleryGrid = document.getElementById('galleryGrid');
-            resultsGallery.style.display = 'block';
-            galleryGrid.innerHTML = '';
-            
-            outputFilenames.forEach((result, index) => {
-                const galleryItem = document.createElement('div');
-                galleryItem.className = 'gallery-item';
-                
-                // Создаем превью для оригинального изображения
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    galleryItem.innerHTML = `
-                        <h4>${result.original}</h4>
-                        <div class="gallery-comparison">
-                            <div class="gallery-image-box">
-                                <p>До</p>
-                                <img src="${e.target.result}" alt="Before">
-                            </div>
-                            <div class="gallery-image-box">
-                                <p>После</p>
-                                <img src="/view/${result.output}?t=${Date.now()}" alt="After">
-                            </div>
-                        </div>
-                        <div class="gallery-stats">
-                            <span>⏱️ ${result.time} сек</span>
-                            <span>📦 ${result.size} КБ</span>
-                        </div>
-                        <button class="btn btn-sm btn-primary" style="width: 100%;" onclick="downloadSingleFile('${result.output}', '${result.original}')">
-                            💾 Скачать
-                        </button>
-                    `;
-                };
-                reader.readAsDataURL(selectedFiles[index]);
-                
-                galleryGrid.appendChild(galleryItem);
-            });
+            resultItem.innerHTML = content;
+            resultsList.appendChild(resultItem);
+        });
+        
+        // Показываем кнопку "Скачать все" если есть успешные файлы
+        console.log('Batch success files:', window.batchSuccessFiles);
+        if (window.batchSuccessFiles.length > 0) {
+            const btn = document.getElementById('downloadAllBtn');
+            console.log('Download all button:', btn);
+            if (btn) {
+                btn.style.display = 'inline-block';
+                console.log('Button shown!');
+            }
         }
     }
     
-    // Прокручиваем к результату
-    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+    // Прокручиваем к результатам
+    document.getElementById('batchResultSection').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Скачать все результаты в ZIP
-async function downloadAllResults() {
+// Скачать все результаты пакетной обработки в архиве
+async function downloadAllBatchResults() {
+    if (!window.batchSuccessFiles || window.batchSuccessFiles.length === 0) {
+        alert('Нет файлов для скачивания');
+        return;
+    }
+    
     try {
-        const filenames = outputFilenames.map(r => r.output);
-        
         const response = await fetch('/download_all', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ files: filenames })
+            body: JSON.stringify({ files: window.batchSuccessFiles })
         });
         
         if (response.ok) {
@@ -466,12 +609,39 @@ async function downloadAllResults() {
     }
 }
 
-// Скачать один файл
-function downloadSingleFile(outputFile, originalName) {
-    const link = document.createElement('a');
-    link.href = '/download/' + outputFile;
-    link.download = `processed_${originalName}`;
-    link.click();
+// Показать результат
+function showResult(result) {
+    outputFilename = result.output_file;
+    
+    // Получаем выбранный режим обработки
+    const processorMode = document.querySelector('input[name="processor"]:checked').value;
+    const processorLabel = processorMode === 'gpu' ? '🚀 GPU (CUDA)' : '💻 CPU';
+    
+    // Обновляем статистику
+    document.getElementById('execTime').textContent = result.execution_time + ' сек';
+    document.getElementById('fileSize').textContent = result.file_size + ' КБ';
+    document.getElementById('filterUsed').textContent = selectedFilter.name + ' [' + processorLabel + ']';
+    
+    // Показываем изображения до/после
+    const beforeImg = document.getElementById('beforeImage');
+    const afterImg = document.getElementById('afterImage');
+    
+    beforeImg.src = document.getElementById('previewImage').src;
+    afterImg.src = '/view/' + outputFilename;
+    
+    // Настраиваем кнопку скачивания
+    document.getElementById('downloadBtn').onclick = () => {
+        window.location.href = '/download/' + outputFilename;
+    };
+    
+    // Скрываем предыдущие секции и показываем результат
+    document.getElementById('uploadBox').style.display = 'none';
+    document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('filterSection').style.display = 'none';
+    document.getElementById('resultSection').style.display = 'block';
+    
+    // Прокручиваем к результату
+    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
 }
 
 // Обработать другое изображение
@@ -520,17 +690,20 @@ function handleParamChange(paramName) {
 // Сброс формы
 function resetForm() {
     selectedFile = null;
+    selectedFiles = [];
     selectedFilter = null;
     outputFilename = null;
+    batchProcessing = false;
     
     document.getElementById('fileInput').value = '';
     document.getElementById('uploadBox').style.display = 'block';
     document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('filesList').style.display = 'none';
     document.getElementById('filterSection').style.display = 'none';
     document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('batchResultSection').style.display = 'none';
     
     document.querySelectorAll('.filter-card').forEach(card => {
         card.classList.remove('selected');
     });
 }
-

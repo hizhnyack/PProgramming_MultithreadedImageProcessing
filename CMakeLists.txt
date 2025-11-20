@@ -29,6 +29,7 @@ set(FILTER_SOURCES
     src/filters/grayscale.cu
     src/filters/rotation.cu
     src/filters/blur.cu
+    src/filters/cpu_filters.cpp
 )
 
 set(UTILS_SOURCES

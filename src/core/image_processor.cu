@@ -1,5 +1,6 @@
 #include "image_processor.h"
 #include <iostream>
+#include <unistd.h>  // для sleep()
 
 ImageProcessor::ImageProcessor() : device_count_(0), initialized_(false) {
     initializeCuda();
@@ -10,12 +11,70 @@ ImageProcessor::~ImageProcessor() {
 }
 
 void ImageProcessor::initializeCuda() {
-    cudaError_t error = cudaGetDeviceCount(&device_count_);
+    fprintf(stderr, "[LOG] ImageProcessor::initializeCuda() called\n");
+    
+    cudaError_t error;
+    int max_retries = 3;
+    int retry_delay = 2;  // секунды
+    
+    // Проверяем переменные окружения
+    const char* cuda_visible = getenv("CUDA_VISIBLE_DEVICES");
+    fprintf(stderr, "[LOG] CUDA_VISIBLE_DEVICES=%s\n", cuda_visible ? cuda_visible : "(not set)");
+    
+    // Пытаемся найти CUDA устройство с повторными попытками
+    for (int attempt = 0; attempt < max_retries; attempt++) {
+        fprintf(stderr, "[LOG] Attempt %d/%d: Checking for CUDA devices...\n", 
+                attempt + 1, max_retries);
+        
+        error = cudaGetDeviceCount(&device_count_);
+        fprintf(stderr, "[LOG] cudaGetDeviceCount() returned: error=%s, count=%d\n", 
+                cudaGetErrorString(error), device_count_);
+        
+        if (error == cudaSuccess && device_count_ > 0) {
+            fprintf(stderr, "[LOG] CUDA device found!\n");
+            break;  // Устройство найдено
+        }
+        
+        if (attempt < max_retries - 1) {
+            fprintf(stderr, "[WARN] CUDA device not found (attempt %d/%d), waiting %d seconds...\n", 
+                    attempt + 1, max_retries, retry_delay);
+            sleep(retry_delay);
+        }
+    }
+    
     if (error != cudaSuccess || device_count_ == 0) {
-        fprintf(stderr, "No CUDA-capable devices found\n");
+        fprintf(stderr, "[ERROR] No CUDA-capable devices found after %d attempts\n", max_retries);
+        fprintf(stderr, "[ERROR] CUDA error: %s\n", cudaGetErrorString(error));
+        fprintf(stderr, "[ERROR] Device count: %d\n", device_count_);
         throw std::runtime_error("CUDA initialization failed");
     }
+    
+    // Явно выбираем первое устройство (NVIDIA GPU)
+    fprintf(stderr, "[LOG] Setting CUDA device to 0...\n");
+    error = cudaSetDevice(0);
+    if (error != cudaSuccess) {
+        fprintf(stderr, "[ERROR] Failed to set CUDA device 0: %s\n", cudaGetErrorString(error));
+        throw std::runtime_error("CUDA device selection failed");
+    }
+    fprintf(stderr, "[LOG] CUDA device 0 set successfully\n");
+    
+    // Проверяем текущее устройство
+    int current_device = -1;
+    cudaGetDevice(&current_device);
+    fprintf(stderr, "[LOG] Current CUDA device: %d\n", current_device);
+    
+    // Получаем и выводим информацию об устройстве
+    cudaDeviceProp prop;
+    error = cudaGetDeviceProperties(&prop, 0);
+    if (error == cudaSuccess) {
+        fprintf(stderr, "[LOG] Using CUDA device: %s (Compute %d.%d, %zu MB memory)\n", 
+                prop.name, prop.major, prop.minor, prop.totalGlobalMem / (1024 * 1024));
+    } else {
+        fprintf(stderr, "[WARN] Failed to get device properties: %s\n", cudaGetErrorString(error));
+    }
+    
     initialized_ = true;
+    fprintf(stderr, "[LOG] CUDA initialization completed successfully\n");
 }
 
 void ImageProcessor::cleanup() {
@@ -126,4 +185,12 @@ float ImageProcessor::getElapsedTime(cudaEvent_t start, cudaEvent_t end) {
     float milliseconds = 0.0f;
     CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, end));
     return milliseconds;
+}
+
+// Реализация cleanupGPU для ImageData
+void ImageData::cleanupGPU() {
+    if (gpu_data) {
+        cudaFree(gpu_data);
+        gpu_data = nullptr;
+    }
 }

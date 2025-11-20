@@ -22,14 +22,29 @@
                     <div class="upload-icon">📁</div>
                     <h2>Загрузите изображения</h2>
                     <p>Перетащите файлы сюда или нажмите для выбора</p>
-                    <p class="file-info">Поддерживаемые форматы: PNG, JPG, BMP (макс. 16 МБ каждый)</p>
+                    <p class="file-info">Поддерживаемые форматы: PNG, JPG, BMP</p>
+                    <p class="file-info">Макс. размер одного файла: 16 МБ | Макс. размер запроса: 3 ГБ</p>
+                    <p class="file-info">Можно выбрать несколько файлов для пакетной обработки</p>
                     <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/bmp" multiple hidden>
                     <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
                         Выбрать файлы
                     </button>
                 </div>
 
-                <!-- Предпросмотр загруженных изображений -->
+                <!-- Список выбранных файлов -->
+                <div class="files-list" id="filesList" style="display: none;">
+                    <h3>Выбранные файлы (<span id="filesCount">0</span>)</h3>
+                    <div class="files-grid" id="filesGrid">
+                        <!-- Файлы будут добавлены динамически -->
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="clearFiles()">
+                            🗑️ Очистить список
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Предпросмотр загруженного изображения (для одного файла) -->
                 <div class="preview-section" id="previewSection" style="display: none;">
                     <h3>Загружено файлов: <span id="fileCount">0</span></h3>
                     <div class="preview-grid" id="previewGrid">
@@ -41,6 +56,23 @@
             <!-- Выбор фильтра -->
             <section class="filter-section" id="filterSection" style="display: none;">
                 <h2>Выберите фильтр</h2>
+                
+                <!-- Переключатель CPU/GPU -->
+                <div class="processor-toggle">
+                    <h3>Режим обработки</h3>
+                    <div class="toggle-container">
+                        <label class="toggle-label">
+                            <input type="radio" name="processor" value="gpu" id="processorGPU" checked>
+                            <span class="toggle-option">🚀 GPU (CUDA)</span>
+                        </label>
+                        <label class="toggle-label">
+                            <input type="radio" name="processor" value="cpu" id="processorCPU">
+                            <span class="toggle-option">💻 CPU</span>
+                        </label>
+                    </div>
+                    <p class="toggle-hint">Переключите для сравнения производительности</p>
+                </div>
+                
                 <div class="filters-grid" id="filtersGrid">
                     <!-- Фильтры загружаются динамически -->
                 </div>
@@ -61,7 +93,7 @@
                 </div>
             </section>
 
-            <!-- Результат -->
+            <!-- Результат (для одного файла) -->
             <section class="result-section" id="resultSection" style="display: none;">
                 <h2>Результат обработки</h2>
                 
@@ -126,14 +158,57 @@
                 </div>
             </section>
 
+            <!-- Результат пакетной обработки -->
+            <section class="batch-result-section" id="batchResultSection" style="display: none;">
+                <h2>Результаты пакетной обработки</h2>
+                
+                <!-- Прогресс обработки -->
+                <div class="progress-section" id="progressSection">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">Ожидание начала обработки...</p>
+                </div>
+
+                <!-- Статистика -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-value" id="batchSuccess">0</div>
+                        <div class="stat-label">Успешно</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-value" id="batchFailed">0</div>
+                        <div class="stat-label">Ошибок</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-value" id="batchTime">-</div>
+                        <div class="stat-label">Время обработки</div>
+                    </div>
+                </div>
+
+                <!-- Список результатов -->
+                <div class="results-list" id="resultsList">
+                    <!-- Результаты будут добавлены динамически -->
+                </div>
+
+                <!-- Кнопки действий -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="downloadAllBtn" onclick="downloadAllBatchResults()">
+                        📦 Скачать архив
+                    </button>
+                    <button class="btn btn-secondary" onclick="processAnother()">
+                        🔄 Обработать другие файлы
+                    </button>
+                </div>
+            </section>
+
             <!-- Индикатор загрузки -->
             <div class="loading-overlay" id="loadingOverlay" style="display: none;">
                 <div class="loading-spinner"></div>
-                <p id="loadingText">Обработка на GPU...</p>
-                <div class="progress-container" id="progressContainer" style="display: none;">
-                    <div class="progress-bar" id="progressBar"></div>
-                    <p class="progress-text" id="progressText">0 / 0</p>
-                </div>
+                <p>Запустить обработку...</p>
             </div>
         </main>
 
@@ -146,4 +221,5 @@
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
+
 

@@ -8,7 +8,8 @@
 class ImageLoader {
 public:
     // Загрузить изображение из файла
-    static bool load(const std::string& filename, ImageData& image);
+    // use_gpu: если false, данные не копируются на GPU (для CPU режима)
+    static bool load(const std::string& filename, ImageData& image, bool use_gpu = true);
     
     // Сохранить изображение в файл
     static bool save(const std::string& filename, const ImageData& image);

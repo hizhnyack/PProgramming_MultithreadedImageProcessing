@@ -184,7 +184,7 @@ void generateGaussianKernel2D(float* kernel, int size, float sigma) {
 
 extern "C" void launchBoxBlurKernel(const unsigned char* input, unsigned char* output,
                                     int width, int height, int channels, int radius) {
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
@@ -195,7 +195,7 @@ extern "C" void launchBoxBlurKernel(const unsigned char* input, unsigned char* o
 extern "C" void launchGaussianBlurKernel(const unsigned char* input, unsigned char* output,
                                          int width, int height, int channels,
                                          const float* kernel, int kernel_size) {
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
@@ -207,7 +207,7 @@ extern "C" void launchGaussianBlurKernel(const unsigned char* input, unsigned ch
 extern "C" void launchGaussianBlurSeparableKernel(const unsigned char* input, unsigned char* temp,
                                                   unsigned char* output, int width, int height,
                                                   int channels, const float* kernel, int kernel_size) {
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
@@ -223,7 +223,7 @@ extern "C" void launchGaussianBlurSeparableKernel(const unsigned char* input, un
 extern "C" void launchMotionBlurKernel(const unsigned char* input, unsigned char* output,
                                        int width, int height, int channels,
                                        int length, float cos_angle, float sin_angle) {
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
@@ -251,7 +251,7 @@ bool BlurFilter::applyBox(const ImageData& input, ImageData& output, int radius)
         CUDA_CHECK_RETURN(cudaMalloc((void**)&output.gpu_data, output.size_bytes));
     }
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((input.width + blockSize.x - 1) / blockSize.x,
                   (input.height + blockSize.y - 1) / blockSize.y);
     
@@ -295,7 +295,7 @@ bool BlurFilter::applyGaussian(const ImageData& input, ImageData& output, float 
         CUDA_CHECK_RETURN(cudaMalloc((void**)&output.gpu_data, output.size_bytes));
     }
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((input.width + blockSize.x - 1) / blockSize.x,
                   (input.height + blockSize.y - 1) / blockSize.y);
     
@@ -344,7 +344,7 @@ bool BlurFilter::applyGaussianSeparable(const ImageData& input, ImageData& outpu
         CUDA_CHECK_RETURN(cudaMalloc((void**)&output.gpu_data, output.size_bytes));
     }
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((input.width + blockSize.x - 1) / blockSize.x,
                   (input.height + blockSize.y - 1) / blockSize.y);
     
@@ -387,7 +387,7 @@ bool BlurFilter::applyMotion(const ImageData& input, ImageData& output,
     float cos_angle = cosf(angle_rad);
     float sin_angle = sinf(angle_rad);
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((input.width + blockSize.x - 1) / blockSize.x,
                   (input.height + blockSize.y - 1) / blockSize.y);
     
@@ -414,7 +414,7 @@ bool BlurFilter::applyBox(ImageData& image, int radius, cudaStream_t stream) {
     unsigned char* output_gpu = nullptr;
     CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, image.size_bytes));
     
-    dim3 blockSize(16, 16);
+    dim3 blockSize(32, 8);  // Оптимизировано для RTX 3080
     dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
                   (image.height + blockSize.y - 1) / blockSize.y);
     

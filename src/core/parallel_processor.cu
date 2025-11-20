@@ -9,7 +9,7 @@ bool ParallelProcessor::s_initialized = false;
 /**
  * @brief CUDA kernel для преобразования в grayscale
  */
-__global__ void ParallelProcessor::grayscaleKernel(
+__global__ void parallelGrayscaleKernel(
     unsigned char* input,
     unsigned char* output,
     int width,
@@ -36,7 +36,7 @@ __global__ void ParallelProcessor::grayscaleKernel(
 /**
  * @brief CUDA kernel для инвертирования цветов
  */
-__global__ void ParallelProcessor::invertKernel(
+__global__ void parallelInvertKernel(
     unsigned char* input,
     unsigned char* output,
     int width,
@@ -218,14 +218,14 @@ void ParallelProcessor::applyFilterToImage(
                  (height + blockDim.y - 1) / blockDim.y);
     
     if (filterType == "grayscale") {
-        grayscaleKernel<<<gridDim, blockDim, 0, stream>>>(d_input, d_output, width, height);
+        parallelGrayscaleKernel<<<gridDim, blockDim, 0, stream>>>(d_input, d_output, width, height);
     }
     else if (filterType == "invert") {
-        invertKernel<<<gridDim, blockDim, 0, stream>>>(d_input, d_output, width, height);
+        parallelInvertKernel<<<gridDim, blockDim, 0, stream>>>(d_input, d_output, width, height);
     }
     else {
         std::cerr << "Warning: Unknown filter type '" << filterType << "', using grayscale" << std::endl;
-        grayscaleKernel<<<gridDim, blockDim, 0, stream>>>(d_input, d_output, width, height);
+        parallelGrayscaleKernel<<<gridDim, blockDim, 0, stream>>>(d_input, d_output, width, height);
     }
 }
 

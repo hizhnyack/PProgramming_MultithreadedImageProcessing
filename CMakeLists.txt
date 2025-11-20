@@ -83,3 +83,9 @@ add_executable(test_blur
 )
 target_link_libraries(test_blur PRIVATE stdc++ m cudart)
 
+add_executable(test_parallel
+    tests/test_parallel.cu
+    ${CORE_SOURCES}
+)
+target_link_libraries(test_parallel PRIVATE stdc++ m cudart)
+

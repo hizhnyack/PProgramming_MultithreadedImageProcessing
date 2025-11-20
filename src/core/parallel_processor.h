@@ -7,6 +7,21 @@
 #include <chrono>
 #include <iostream>
 
+// Forward declarations для CUDA kernels
+__global__ void parallelGrayscaleKernel(
+    unsigned char* input,
+    unsigned char* output,
+    int width,
+    int height
+);
+
+__global__ void parallelInvertKernel(
+    unsigned char* input,
+    unsigned char* output,
+    int width,
+    int height
+);
+
 /**
  * @brief Класс для параллельной обработки изображений с использованием CUDA streams
  *
@@ -62,7 +77,7 @@ public:
      * @param config Конфигурация обработки
      * @return true если инициализация успешна, false в противном случае
      */
-    static bool initialize(const ParallelConfig& config = ParallelConfig());
+    static bool initialize(const ParallelConfig& config);
 
     /**
      * @brief Параллельная обработка batch изображений одним фильтром
@@ -110,21 +125,6 @@ private:
     // Вспомогательные методы
     static bool setupCUDAStreams(std::vector<cudaStream_t>& streams, int count);
     static void cleanupCUDAStreams(std::vector<cudaStream_t>& streams);
-    
-    // Kernel-функции
-    static __global__ void grayscaleKernel(
-        unsigned char* input,
-        unsigned char* output,
-        int width,
-        int height
-    );
-    
-    static __global__ void invertKernel(
-        unsigned char* input,
-        unsigned char* output,
-        int width,
-        int height
-    );
 
     static void applyFilterToImage(
         unsigned char* d_input,

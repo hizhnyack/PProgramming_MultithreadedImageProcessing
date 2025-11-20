@@ -536,27 +536,62 @@ function showBatchResults(result, totalTime) {
             const resultItem = document.createElement('div');
             resultItem.className = `result-item ${item.success ? 'success' : 'error'}`;
             
-            let content = `
-                <div class="result-status">${item.success ? '✅' : '❌'}</div>
-                <div class="result-name">${item.filename}</div>
-            `;
-            
             if (item.success && item.output_file) {
                 window.batchSuccessFiles.push(item.output_file);
-                content += `
-                    <img src="/view/${item.output_file}" alt="Result">
-                    <div class="result-time">${item.execution_time ? item.execution_time.toFixed(3) + ' сек' : '-'}</div>
-                    <button class="download-btn" onclick="window.location.href='/download/${item.output_file}'">
-                        💾 Скачать
-                    </button>
-                `;
+                
+                // Находим оригинальный файл из selectedFiles
+                const originalFile = selectedFiles[index];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    // Получаем размер результата
+                    const sizeKB = item.file_size ? item.file_size : '-';
+                    
+                    resultItem.innerHTML = `
+                        <div class="result-status">✅</div>
+                        <div class="result-filename">${item.filename}</div>
+                        <div class="comparison-container">
+                            <div class="comparison-item">
+                                <div class="comparison-label">До</div>
+                                <img src="${e.target.result}" alt="До">
+                            </div>
+                            <div class="comparison-item">
+                                <div class="comparison-label">После</div>
+                                <img src="/view/${item.output_file}" alt="После">
+                            </div>
+                        </div>
+                        <div class="result-stats">
+                            <span>⏱️ ${item.execution_time ? item.execution_time.toFixed(3) + ' сек' : '-'}</span>
+                            <span>📦 ${sizeKB} КБ</span>
+                        </div>
+                        <button class="download-btn" onclick="window.location.href='/download/${item.output_file}'">
+                            💾 Скачать
+                        </button>
+                    `;
+                };
+                
+                if (originalFile) {
+                    reader.readAsDataURL(originalFile);
+                } else {
+                    // Если нет оригинала, показываем только результат
+                    resultItem.innerHTML = `
+                        <div class="result-status">✅</div>
+                        <div class="result-filename">${item.filename}</div>
+                        <img src="/view/${item.output_file}" alt="Result">
+                        <div class="result-time">${item.execution_time ? item.execution_time.toFixed(3) + ' сек' : '-'}</div>
+                        <button class="download-btn" onclick="window.location.href='/download/${item.output_file}'">
+                            💾 Скачать
+                        </button>
+                    `;
+                }
             } else {
-                content += `
+                resultItem.innerHTML = `
+                    <div class="result-status">❌</div>
+                    <div class="result-filename">${item.filename}</div>
                     <div class="result-time" style="color: #dc3545;">${item.error || 'Ошибка обработки'}</div>
                 `;
             }
             
-            resultItem.innerHTML = content;
             resultsList.appendChild(resultItem);
         });
         

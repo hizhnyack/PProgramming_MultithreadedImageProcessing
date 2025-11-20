@@ -903,7 +903,7 @@ body {
 
 .results-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 20px;
     margin-top: 30px;
 }
@@ -929,11 +929,55 @@ body {
     margin-bottom: 10px;
 }
 
+.result-item .result-filename {
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 15px;
+    word-break: break-word;
+    font-weight: 500;
+}
+
 .result-item .result-name {
     font-size: 0.9em;
     color: #333;
     margin-bottom: 10px;
     word-break: break-word;
+}
+
+.result-item .comparison-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.result-item .comparison-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.result-item .comparison-label {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.result-item .comparison-item img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+}
+
+.result-item .result-stats {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 10px;
 }
 
 .result-item img {
@@ -950,18 +994,20 @@ body {
 }
 
 .result-item .download-btn {
-    background: #667eea;
+    background: #17a2b8;
     color: white;
     border: none;
     border-radius: 5px;
-    padding: 8px 15px;
+    padding: 10px 20px;
     cursor: pointer;
     font-size: 0.9em;
+    font-weight: 600;
     margin-top: 5px;
+    transition: background 0.3s;
 }
 
 .result-item .download-btn:hover {
-    background: #764ba2;
+    background: #138496;
 }
 
 /* Адаптивность */

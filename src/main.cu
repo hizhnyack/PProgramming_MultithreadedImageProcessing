@@ -23,17 +23,35 @@ void printUsage(const char* program_name) {
 }
 
 int main(int argc, char** argv) {
+    fprintf(stderr, "[MAIN] Program started with %d arguments\n", argc);
+    for (int i = 0; i < argc; i++) {
+        fprintf(stderr, "[MAIN]   argv[%d] = %s\n", i, argv[i]);
+    }
+    
+    // Инициализируем CUDA в начале программы
+    fprintf(stderr, "[MAIN] Initializing CUDA...\n");
+    try {
+        ImageProcessor processor;
+        fprintf(stderr, "[MAIN] CUDA initialized successfully\n");
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[MAIN] ERROR: CUDA initialization failed: %s\n", e.what());
+        return 1;
+    }
+    
     if (argc < 2) {
         printUsage(argv[0]);
         return 1;
     }
     
     std::string command = argv[1];
+    fprintf(stderr, "[MAIN] Command: %s\n", command.c_str());
     
     // Single file processing
     if (command == "grayscale" && argc == 4) {
+        fprintf(stderr, "[MAIN] Processing grayscale: %s -> %s\n", argv[2], argv[3]);
         ImageData image;
         if (!ImageLoader::load(argv[2], image)) {
+            fprintf(stderr, "[MAIN] Failed to load image\n");
             return 1;
         }
         

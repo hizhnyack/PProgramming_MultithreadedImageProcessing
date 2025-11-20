@@ -59,3 +59,7 @@ foto/
 output/
 test_images/
 test_output/
+
+# Logs
+logs/
+*.log

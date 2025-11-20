@@ -36,56 +36,72 @@ set(UTILS_SOURCES
     src/utils/batch_processor.cu
 )
 
-add_executable(image_processor
-    src/main.cu
+# ============================================================
+# Создание библиотеки для обработки изображений
+# ============================================================
+
+# Статическая библиотека
+add_library(image_processing_lib STATIC
     ${CORE_SOURCES}
     ${FILTER_SOURCES}
     ${UTILS_SOURCES}
 )
 
-set_target_properties(image_processor PROPERTIES
+set_target_properties(image_processing_lib PROPERTIES
     CUDA_SEPARABLE_COMPILATION OFF
+    OUTPUT_NAME "image_processing"
 )
 
-target_compile_options(image_processor PRIVATE
+target_compile_options(image_processing_lib PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
         --expt-relaxed-constexpr
         -Xcompiler -Wall
     >
 )
 
-# Линковка с C++ стандартной библиотекой и математической библиотекой
-target_link_libraries(image_processor PRIVATE
+target_link_libraries(image_processing_lib PUBLIC
     stdc++
     m
     cudart
 )
 
-# Отдельные тесты для каждого фильтра
+# ============================================================
+# Исполняемый файл (использует библиотеку)
+# ============================================================
+
+add_executable(image_processor
+    src/main.cu
+)
+
+set_target_properties(image_processor PROPERTIES
+    CUDA_SEPARABLE_COMPILATION OFF
+)
+
+target_link_libraries(image_processor PRIVATE
+    image_processing_lib
+)
+
+# ============================================================
+# Тесты (используют библиотеку)
+# ============================================================
+
 add_executable(test_grayscale
     tests/test_grayscale.cu
-    ${CORE_SOURCES}
-    src/filters/grayscale.cu
 )
-target_link_libraries(test_grayscale PRIVATE stdc++ m cudart)
+target_link_libraries(test_grayscale PRIVATE image_processing_lib)
 
 add_executable(test_rotation
     tests/test_rotation.cu
-    ${CORE_SOURCES}
-    src/filters/rotation.cu
 )
-target_link_libraries(test_rotation PRIVATE stdc++ m cudart)
+target_link_libraries(test_rotation PRIVATE image_processing_lib)
 
 add_executable(test_blur
     tests/test_blur.cu
-    ${CORE_SOURCES}
-    src/filters/blur.cu
 )
-target_link_libraries(test_blur PRIVATE stdc++ m cudart)
+target_link_libraries(test_blur PRIVATE image_processing_lib)
 
 add_executable(test_parallel
     tests/test_parallel.cu
-    ${CORE_SOURCES}
 )
-target_link_libraries(test_parallel PRIVATE stdc++ m cudart)
+target_link_libraries(test_parallel PRIVATE image_processing_lib)
 

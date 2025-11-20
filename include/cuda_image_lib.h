@@ -8,5 +8,6 @@
 #include "rotation.h"
 #include "batch_processor.h"
 #include "image_loader.h"
+#include "parallel_processor.h"
 
 #endif

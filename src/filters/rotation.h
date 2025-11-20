@@ -7,12 +7,18 @@
 // Поворот изображения 90°, 180°, 270° и произвольный угол
 class RotationFilter {
 public:
+    // Версии без stream
     static bool rotate90(const ImageData& input, ImageData& output);
     static bool rotate180(const ImageData& input, ImageData& output);
     static bool rotate270(const ImageData& input, ImageData& output);
     static bool rotateArbitrary(const ImageData& input, ImageData& output, 
                                 float angle, unsigned char background = 0);
     static bool rotate180InPlace(ImageData& image);
+    
+    // Версии с stream (для конвейера) - поворот 90° по умолчанию
+    static bool rotate90(ImageData& image, cudaStream_t stream);
+    static bool rotate180(ImageData& image, cudaStream_t stream);
+    static bool rotate270(ImageData& image, cudaStream_t stream);
 };
 
 // Низкоуровневые CUDA функции

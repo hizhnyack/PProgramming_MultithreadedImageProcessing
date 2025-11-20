@@ -7,11 +7,15 @@
 // Размытие изображения
 class BlurFilter {
 public:
+    // Версии без stream
     static bool applyBox(const ImageData& input, ImageData& output, int radius);
     static bool applyGaussian(const ImageData& input, ImageData& output, float sigma);
     static bool applyGaussianSeparable(const ImageData& input, ImageData& output, float sigma);
     static bool applyMotion(const ImageData& input, ImageData& output, 
                             int length, float angle);
+    
+    // Версии с stream (для конвейера)
+    static bool applyBox(ImageData& image, int radius, cudaStream_t stream);
 };
 
 // Низкоуровневые CUDA функции

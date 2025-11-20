@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUDA Image Processing - GPU Обработка изображений</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Заголовок -->
+        <header class="header">
+            <h1>🚀 CUDA Image Processing</h1>
+            <p class="subtitle">Обработка изображений на GPU с использованием NVIDIA CUDA</p>
+        </header>
+
+        <!-- Основной контент -->
+        <main class="main-content">
+            <!-- Секция загрузки -->
+            <section class="upload-section">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-icon">📁</div>
+                    <h2>Загрузите изображение</h2>
+                    <p>Перетащите файл сюда или нажмите для выбора</p>
+                    <p class="file-info">Поддерживаемые форматы: PNG, JPG, BMP (макс. 16 МБ)</p>
+                    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/bmp" hidden>
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Выбрать файл
+                    </button>
+                </div>
+
+                <!-- Предпросмотр загруженного изображения -->
+                <div class="preview-section" id="previewSection" style="display: none;">
+                    <h3>Исходное изображение</h3>
+                    <img id="previewImage" alt="Preview">
+                    <p id="fileName"></p>
+                </div>
+            </section>
+
+            <!-- Выбор фильтра -->
+            <section class="filter-section" id="filterSection" style="display: none;">
+                <h2>Выберите фильтр</h2>
+                <div class="filters-grid" id="filtersGrid">
+                    <!-- Фильтры загружаются динамически -->
+                </div>
+
+                <!-- Параметры фильтра -->
+                <div class="filter-params" id="filterParams" style="display: none;">
+                    <!-- Параметры загружаются динамически -->
+                </div>
+
+                <!-- Кнопка обработки -->
+                <div class="action-buttons">
+                    <button class="btn btn-success" id="processBtn" onclick="processImage()">
+                        ⚡ Обработать на GPU
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetForm()">
+                        🔄 Сбросить
+                    </button>
+                </div>
+            </section>
+
+            <!-- Результат -->
+            <section class="result-section" id="resultSection" style="display: none;">
+                <h2>Результат обработки</h2>
+                
+                <!-- Статистика -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-value" id="execTime">-</div>
+                        <div class="stat-label">Время выполнения</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value" id="fileSize">-</div>
+                        <div class="stat-label">Размер файла</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎨</div>
+                        <div class="stat-value" id="filterUsed">-</div>
+                        <div class="stat-label">Применен фильтр</div>
+                    </div>
+                </div>
+
+                <!-- Сравнение до/после -->
+                <div class="comparison">
+                    <div class="comparison-item">
+                        <h3>До</h3>
+                        <img id="beforeImage" alt="Before">
+                    </div>
+                    <div class="comparison-item">
+                        <h3>После</h3>
+                        <img id="afterImage" alt="After">
+                    </div>
+                </div>
+
+                <!-- Кнопки действий -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="downloadBtn">
+                        💾 Скачать результат
+                    </button>
+                    <button class="btn btn-secondary" onclick="processAnother()">
+                        🔄 Обработать другое изображение
+                    </button>
+                </div>
+            </section>
+
+            <!-- Индикатор загрузки -->
+            <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Обработка на GPU...</p>
+            </div>
+        </main>
+
+        <!-- Футер -->
+        <footer class="footer">
+            <p>💻 Курсовой проект по параллельному программированию</p>
+            <p>🎓 Команда из 4 студентов | CUDA + NVIDIA GPU</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+

@@ -42,6 +42,12 @@
 
 # Build directory
 build/
+
+# Web interface
+web/venv/
+web/uploads/
+web/output/
+web/__pycache__/
 cuda-keyring_1.0-1_all*
 run_tests.sh
 # External libraries (downloaded automatically)

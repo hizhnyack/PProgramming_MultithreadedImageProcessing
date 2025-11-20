@@ -14,10 +14,12 @@ void printUsage(const char* program_name) {
     printf("  rotate180 <input> <output>          - Rotate 180 degrees\n");
     printf("  rotate270 <input> <output>          - Rotate 270 degrees\n");
     printf("  blur <input> <output> <radius>      - Apply blur filter\n");
-    printf("  batch <filter> <input_dir> <output_dir> - Process directory\n");
+    printf("  batch <filter> <input_dir> <output_dir>         - Process directory (multithreaded)\n");
+    printf("  batch-pipeline <filter> <input_dir> <output_dir> - Process directory (pipeline mode - FASTER!)\n");
     printf("\nExample:\n");
     printf("  %s grayscale input.png output.png\n", program_name);
     printf("  %s batch grayscale ./images ./output\n", program_name);
+    printf("  %s batch-pipeline grayscale ./images ./output\n", program_name);
 }
 
 int main(int argc, char** argv) {
@@ -175,6 +177,55 @@ int main(int argc, char** argv) {
         }
         
         printf("✓ Batch processing completed\n");
+        return 0;
+    }
+    
+    // Pipeline batch processing (FASTER!)
+    else if (command == "batch-pipeline" && argc == 5) {
+        std::string filter = argv[2];
+        std::string input_dir = argv[3];
+        std::string output_dir = argv[4];
+        
+        PipelineBatchProcessor::ProcessCallback callback;
+        
+        if (filter == "grayscale") {
+            callback = [](ImageData& img, cudaStream_t stream) {
+                return GrayscaleFilter::apply(img, stream);
+            };
+        }
+        else if (filter == "blur") {
+            callback = [](ImageData& img, cudaStream_t stream) {
+                return BlurFilter::applyBox(img, 5, stream);
+            };
+        }
+        else if (filter == "rotate90") {
+            callback = [](ImageData& img, cudaStream_t stream) {
+                return RotationFilter::rotate90(img, stream);
+            };
+        }
+        else if (filter == "rotate180") {
+            callback = [](ImageData& img, cudaStream_t stream) {
+                return RotationFilter::rotate180(img, stream);
+            };
+        }
+        else if (filter == "rotate270") {
+            callback = [](ImageData& img, cudaStream_t stream) {
+                return RotationFilter::rotate270(img, stream);
+            };
+        }
+        else {
+            fprintf(stderr, "Unknown filter: %s\n", filter.c_str());
+            fprintf(stderr, "Available filters: grayscale, blur, rotate90, rotate180, rotate270\n");
+            return 1;
+        }
+        
+        // Используем 4 CUDA streams и буфер размером 10
+        if (!PipelineBatchProcessor::processDirectoryPipelined(input_dir, output_dir, callback, ".png", 4, 10)) {
+            fprintf(stderr, "Pipeline batch processing failed\n");
+            return 1;
+        }
+        
+        printf("✓ Pipeline batch processing completed\n");
         return 0;
     }
     

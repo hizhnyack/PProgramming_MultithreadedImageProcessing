@@ -400,3 +400,36 @@ bool BlurFilter::applyMotion(const ImageData& input, ImageData& output,
     return true;
 }
 
+// ============================================================================
+// Версии с поддержкой CUDA stream (для конвейерной обработки)
+// ============================================================================
+
+bool BlurFilter::applyBox(ImageData& image, int radius, cudaStream_t stream) {
+    if (!image.gpu_data || image.channels < 1 || radius < 1) {
+        fprintf(stderr, "Invalid input for box blur\n");
+        return false;
+    }
+    
+    // Создаем временный буфер для результата
+    unsigned char* output_gpu = nullptr;
+    CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, image.size_bytes));
+    
+    dim3 blockSize(16, 16);
+    dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
+                  (image.height + blockSize.y - 1) / blockSize.y);
+    
+    boxBlurKernel<<<gridSize, blockSize, 0, stream>>>(image.gpu_data, output_gpu,
+                                                       image.width, image.height,
+                                                       image.channels, radius);
+    
+    CUDA_CHECK_RETURN(cudaGetLastError());
+    
+    // Заменяем буфер
+    if (image.gpu_data) {
+        cudaFree(image.gpu_data);
+    }
+    image.gpu_data = output_gpu;
+    
+    return true;
+}
+

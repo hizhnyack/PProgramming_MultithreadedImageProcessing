@@ -68,25 +68,30 @@ __global__ void grayscaleInPlaceKernel(unsigned char* data, int width, int heigh
 }
 
 extern "C" void launchGrayscaleKernel(const unsigned char* input, unsigned char* output,
-                                      int width, int height, int channels) {
+                                      int width, int height, int channels, cudaStream_t stream) {
     dim3 blockSize(16, 16);
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
-    grayscaleKernel<<<gridSize, blockSize>>>(input, output, width, height, channels);
-    cudaDeviceSynchronize();
+    grayscaleKernel<<<gridSize, blockSize, 0, stream>>>(input, output, width, height, channels);
+    if (stream == 0) {
+        cudaDeviceSynchronize();
+    }
 }
 
 extern "C" void launchGrayscaleWeightedKernel(const unsigned char* input, unsigned char* output,
                                               int width, int height, int channels,
-                                              float r_weight, float g_weight, float b_weight) {
+                                              float r_weight, float g_weight, float b_weight,
+                                              cudaStream_t stream) {
     dim3 blockSize(16, 16);
     dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
                   (height + blockSize.y - 1) / blockSize.y);
     
-    grayscaleWeightedKernel<<<gridSize, blockSize>>>(input, output, width, height, channels,
+    grayscaleWeightedKernel<<<gridSize, blockSize, 0, stream>>>(input, output, width, height, channels,
                                                       r_weight, g_weight, b_weight);
-    cudaDeviceSynchronize();
+    if (stream == 0) {
+        cudaDeviceSynchronize();
+    }
 }
 
 bool GrayscaleFilter::apply(const ImageData& input, ImageData& output) {
@@ -166,6 +171,86 @@ bool GrayscaleFilter::applyWithWeights(const ImageData& input, ImageData& output
     
     CUDA_CHECK_RETURN(cudaGetLastError());
     CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+    return true;
+}
+
+// ============================================================================
+// Версии с поддержкой CUDA stream (для конвейерной обработки)
+// ============================================================================
+
+bool GrayscaleFilter::apply(ImageData& image, cudaStream_t stream) {
+    if (!image.gpu_data || image.channels < 1) {
+        fprintf(stderr, "Invalid input image for grayscale filter\n");
+        return false;
+    }
+    
+    // Создаем временный буфер для результата (1 канал)
+    unsigned char* output_gpu = nullptr;
+    size_t output_size = image.width * image.height * sizeof(unsigned char);
+    CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, output_size));
+    
+    dim3 blockSize(16, 16);
+    dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
+                  (image.height + blockSize.y - 1) / blockSize.y);
+    
+    grayscaleKernel<<<gridSize, blockSize, 0, stream>>>(image.gpu_data, output_gpu,
+                                                        image.width, image.height, image.channels);
+    
+    CUDA_CHECK_RETURN(cudaGetLastError());
+    
+    // Освобождаем старый буфер и заменяем на новый
+    if (image.gpu_data) {
+        cudaFree(image.gpu_data);
+    }
+    image.gpu_data = output_gpu;
+    image.channels = 1;
+    image.size_bytes = output_size;
+    
+    // Обновляем host буфер
+    if (image.data) {
+        delete[] image.data;
+    }
+    image.data = new unsigned char[output_size];
+    
+    return true;
+}
+
+bool GrayscaleFilter::applyWithWeights(ImageData& image, cudaStream_t stream,
+                                       float r_weight, float g_weight, float b_weight) {
+    if (!image.gpu_data || image.channels < 3) {
+        fprintf(stderr, "Invalid input image for weighted grayscale filter\n");
+        return false;
+    }
+    
+    // Создаем временный буфер для результата (1 канал)
+    unsigned char* output_gpu = nullptr;
+    size_t output_size = image.width * image.height * sizeof(unsigned char);
+    CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, output_size));
+    
+    dim3 blockSize(16, 16);
+    dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
+                  (image.height + blockSize.y - 1) / blockSize.y);
+    
+    grayscaleWeightedKernel<<<gridSize, blockSize, 0, stream>>>(image.gpu_data, output_gpu,
+                                                                image.width, image.height, image.channels,
+                                                                r_weight, g_weight, b_weight);
+    
+    CUDA_CHECK_RETURN(cudaGetLastError());
+    
+    // Освобождаем старый буфер и заменяем на новый
+    if (image.gpu_data) {
+        cudaFree(image.gpu_data);
+    }
+    image.gpu_data = output_gpu;
+    image.channels = 1;
+    image.size_bytes = output_size;
+    
+    // Обновляем host буфер
+    if (image.data) {
+        delete[] image.data;
+    }
+    image.data = new unsigned char[output_size];
+    
     return true;
 }
 

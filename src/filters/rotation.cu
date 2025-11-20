@@ -324,3 +324,119 @@ bool RotationFilter::rotate180InPlace(ImageData& image) {
     return true;
 }
 
+// ============================================================================
+// Версии с поддержкой CUDA stream (для конвейерной обработки)
+// ============================================================================
+
+bool RotationFilter::rotate90(ImageData& image, cudaStream_t stream) {
+    if (!image.gpu_data || image.channels < 1) {
+        fprintf(stderr, "Invalid input image for rotation filter\n");
+        return false;
+    }
+    
+    // Создаем буфер для повернутого изображения (меняем width и height местами)
+    unsigned char* output_gpu = nullptr;
+    size_t output_size = image.height * image.width * image.channels * sizeof(unsigned char);
+    CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, output_size));
+    
+    dim3 blockSize(16, 16);
+    dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
+                  (image.height + blockSize.y - 1) / blockSize.y);
+    
+    rotate90Kernel<<<gridSize, blockSize, 0, stream>>>(image.gpu_data, output_gpu,
+                                                        image.width, image.height, image.channels);
+    
+    CUDA_CHECK_RETURN(cudaGetLastError());
+    
+    // Меняем размеры местами
+    int new_width = image.height;
+    int new_height = image.width;
+    
+    // Освобождаем старый буфер
+    if (image.gpu_data) {
+        cudaFree(image.gpu_data);
+    }
+    image.gpu_data = output_gpu;
+    image.width = new_width;
+    image.height = new_height;
+    image.size_bytes = output_size;
+    
+    // Обновляем host буфер
+    if (image.data) {
+        delete[] image.data;
+    }
+    image.data = new unsigned char[output_size];
+    
+    return true;
+}
+
+bool RotationFilter::rotate180(ImageData& image, cudaStream_t stream) {
+    if (!image.gpu_data || image.channels < 1) {
+        fprintf(stderr, "Invalid input image for rotation filter\n");
+        return false;
+    }
+    
+    // Для 180° размеры не меняются
+    unsigned char* output_gpu = nullptr;
+    CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, image.size_bytes));
+    
+    dim3 blockSize(16, 16);
+    dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
+                  (image.height + blockSize.y - 1) / blockSize.y);
+    
+    rotate180Kernel<<<gridSize, blockSize, 0, stream>>>(image.gpu_data, output_gpu,
+                                                         image.width, image.height, image.channels);
+    
+    CUDA_CHECK_RETURN(cudaGetLastError());
+    
+    // Заменяем буфер
+    if (image.gpu_data) {
+        cudaFree(image.gpu_data);
+    }
+    image.gpu_data = output_gpu;
+    
+    return true;
+}
+
+bool RotationFilter::rotate270(ImageData& image, cudaStream_t stream) {
+    if (!image.gpu_data || image.channels < 1) {
+        fprintf(stderr, "Invalid input image for rotation filter\n");
+        return false;
+    }
+    
+    // Создаем буфер для повернутого изображения (меняем width и height местами)
+    unsigned char* output_gpu = nullptr;
+    size_t output_size = image.height * image.width * image.channels * sizeof(unsigned char);
+    CUDA_CHECK_RETURN(cudaMalloc((void**)&output_gpu, output_size));
+    
+    dim3 blockSize(16, 16);
+    dim3 gridSize((image.width + blockSize.x - 1) / blockSize.x,
+                  (image.height + blockSize.y - 1) / blockSize.y);
+    
+    rotate270Kernel<<<gridSize, blockSize, 0, stream>>>(image.gpu_data, output_gpu,
+                                                         image.width, image.height, image.channels);
+    
+    CUDA_CHECK_RETURN(cudaGetLastError());
+    
+    // Меняем размеры местами
+    int new_width = image.height;
+    int new_height = image.width;
+    
+    // Освобождаем старый буфер
+    if (image.gpu_data) {
+        cudaFree(image.gpu_data);
+    }
+    image.gpu_data = output_gpu;
+    image.width = new_width;
+    image.height = new_height;
+    image.size_bytes = output_size;
+    
+    // Обновляем host буфер
+    if (image.data) {
+        delete[] image.data;
+    }
+    image.data = new unsigned char[output_size];
+    
+    return true;
+}
+

@@ -229,6 +229,7 @@ function handleFiles(files) {
     
     // Если один файл - используем старый режим
     if (validFiles.length === 1) {
+        console.log('[DEBUG] Загружен 1 файл:', validFiles[0].name);
         selectedFile = validFiles[0];
         selectedFiles = [];
         batchProcessing = false;
@@ -236,11 +237,13 @@ function handleFiles(files) {
         // Показываем предпросмотр
         const reader = new FileReader();
         reader.onload = function(e) {
+            console.log('[DEBUG] Файл прочитан, показываем предпросмотр');
             document.getElementById('previewImage').src = e.target.result;
             document.getElementById('fileName').textContent = validFiles[0].name;
-            document.getElementById('previewSection').style.display = 'block';
-            document.getElementById('filesList').style.display = 'none';
+            document.getElementById('singlePreview').style.display = 'block';  // Показываем одиночный предпросмотр
+            document.getElementById('previewSection').style.display = 'none';  // Скрываем множественный
             document.getElementById('filterSection').style.display = 'block';
+            console.log('[DEBUG] Секция фильтров показана');
         };
         reader.readAsDataURL(validFiles[0]);
     } else {
@@ -349,6 +352,12 @@ function clearFiles() {
 
 // Обработка изображений
 async function processImage() {
+    console.log('[DEBUG] processImage вызвана');
+    console.log('[DEBUG] selectedFile:', selectedFile);
+    console.log('[DEBUG] selectedFiles:', selectedFiles);
+    console.log('[DEBUG] selectedFilter:', selectedFilter);
+    console.log('[DEBUG] batchProcessing:', batchProcessing);
+    
     if (!selectedFile && selectedFiles.length === 0) {
         alert('Пожалуйста, выберите файл(ы)!');
         return;
@@ -361,8 +370,10 @@ async function processImage() {
     
     // Если один файл - используем старый режим
     if (!batchProcessing && selectedFile) {
+        console.log('[DEBUG] Запуск processSingleFile');
         await processSingleFile();
     } else if (batchProcessing && selectedFiles.length > 0) {
+        console.log('[DEBUG] Запуск processBatchFiles');
         await processBatchFiles();
     }
 }
@@ -732,6 +743,7 @@ function resetForm() {
     
     document.getElementById('fileInput').value = '';
     document.getElementById('uploadBox').style.display = 'block';
+    document.getElementById('singlePreview').style.display = 'none'; 
     document.getElementById('previewSection').style.display = 'none';
     document.getElementById('filesList').style.display = 'none';
     document.getElementById('filterSection').style.display = 'none';

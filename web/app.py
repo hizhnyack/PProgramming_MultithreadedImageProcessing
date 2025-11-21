@@ -580,7 +580,7 @@ def get_filters():
                         {'value': 'box', 'label': 'Box Blur (быстрый, простой)'},
                         {'value': 'gaussian', 'label': 'Gaussian Blur (качественный)'},
                         {'value': 'separable', 'label': 'Separable Gaussian (оптимизированный)'},
-                        {'value': 'motion', 'label': 'Motion Blur (эффект движения)'}
+                        # {'value': 'motion', 'label': 'Motion Blur (эффект движения)'}  # ВРЕМЕННО ОТКЛЮЧЕН - работает странно
                     ],
                     'default': 'box'
                 },
@@ -593,18 +593,19 @@ def get_filters():
                     'default': 5,
                     'unit': 'px'
                 },
-                {
-                    'name': 'motion_angle',
-                    'label': 'Угол движения (для Motion Blur)',
-                    'type': 'range',
-                    'min': 0,
-                    'max': 360,
-                    'step': 45,
-                    'default': 0,
-                    'unit': '°',
-                    'depends_on': 'blur_algorithm',
-                    'depends_value': 'motion'
-                }
+                # ВРЕМЕННО ОТКЛЮЧЕН
+                # {
+                #     'name': 'motion_angle',
+                #     'label': 'Угол движения (для Motion Blur)',
+                #     'type': 'range',
+                #     'min': 0,
+                #     'max': 360,
+                #     'step': 45,
+                #     'default': 0,
+                #     'unit': '°',
+                #     'depends_on': 'blur_algorithm',
+                #     'depends_value': 'motion'
+                # }
             ]
         }
     ]

@@ -45,6 +45,18 @@
                 </div>
 
                 <!-- Предпросмотр загруженного изображения (для одного файла) -->
+                <!-- Предпросмотр одного файла -->
+                <div class="preview-section single-preview" id="singlePreview" style="display: none;">
+                    <h3>Выбранный файл</h3>
+                    <div class="single-file-preview">
+                        <img id="previewImage" src="" alt="Preview">
+                        <div class="file-info">
+                            <p><strong>Имя файла:</strong> <span id="fileName">-</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Предпросмотр нескольких файлов -->
                 <div class="preview-section" id="previewSection" style="display: none;">
                     <h3>Загружено файлов: <span id="fileCount">0</span></h3>
                     <div class="preview-grid" id="previewGrid">
